@@ -1,3 +1,7 @@
+github.com/Succo/countrymoji v0.0.0-20210317211339-7eade43d6139 h1:5ZoxOrbQ1+6fk7e0EL6zGJOMpmtDF1dAkyoCpWwTzHM=
+github.com/Succo/countrymoji v0.0.0-20210317211339-7eade43d6139/go.mod h1:3c4UFnu/i06BBMcR56w3AwYrjizeTrfAcCjFnypWtP4=
+github.com/Succo/emoji v0.0.0-20210317211306-39491a0d7ff4 h1:hYHSM/TxRybWqB7jr+1BEtb67Rw+QrZJxPsaqUWxJHI=
+github.com/Succo/emoji v0.0.0-20210317211306-39491a0d7ff4/go.mod h1:t197G55a3ZlYzq9OEt9QMqQvo7QVpMARXn03aEkKynQ=
 github.com/bwmarrin/discordgo v0.26.0 h1:/AdFmxHXSHInYAZ7K0O3VEIXlVjGpztk/nuCr9o+JCs=
 github.com/bwmarrin/discordgo v0.26.0/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
 github.com/gorilla/websocket v1.4.2 h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0Ufc=
@@ -10,5 +14,6 @@ golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 h1:nxC68pudNYkKU6jWhgrqdreuFiOQWj1Fs7T3VrH4Pjw=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+golang.org/x/text v0.3.3 h1:cokOdA+Jmi5PJGXLlLllQSgYigAEfHXJAERHVMaCc2k=
 golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
