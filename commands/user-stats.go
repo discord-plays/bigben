@@ -1,10 +1,13 @@
 package commands
 
 import (
+	"github.com/MrMelon54/BigBen/utils"
 	"github.com/bwmarrin/discordgo"
 )
 
 type userStatsCommand struct{}
+
+func (x *userStatsCommand) Init(utils.MainBotInterface) {}
 
 func (x *userStatsCommand) Command() discordgo.ApplicationCommand {
 	return discordgo.ApplicationCommand{

@@ -1,10 +1,13 @@
 package commands
 
 import (
+	"github.com/MrMelon54/BigBen/utils"
 	"github.com/bwmarrin/discordgo"
 )
 
 type leaderboardCommand struct{}
+
+func (x *leaderboardCommand) Init(utils.MainBotInterface) {}
 
 func (x *leaderboardCommand) Command() discordgo.ApplicationCommand {
 	return discordgo.ApplicationCommand{
