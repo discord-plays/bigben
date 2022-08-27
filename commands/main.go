@@ -6,7 +6,8 @@ import (
 )
 
 var (
-	prebuiltHandlers = []CommandHandler{
+	manageServerPerm int64 = discordgo.PermissionManageServer
+	prebuiltHandlers       = []CommandHandler{
 		&setupCommand{},
 		&leaderboardCommand{},
 		&userStatsCommand{},

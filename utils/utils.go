@@ -2,9 +2,8 @@ package utils
 
 import (
 	"github.com/MrMelon54/BigBen/tables"
-	"github.com/Succo/emoji"
 	"github.com/bwmarrin/discordgo"
-	"regexp"
+	"time"
 )
 
 type MainBotInterface interface {
@@ -15,24 +14,13 @@ type MainBotInterface interface {
 	PutGuildSettings(guildSettings tables.GuildSettings) error
 }
 
-var decodeDiscordEmojiSource = regexp.MustCompile("/^<a?:.+?:\\d{18}>")
-
-func DecodeDiscordEmoji(a string) (string, bool, int) {
-	decode := decodeDiscordEmojiSource.FindString(a)
-	if decode == "" {
-		return emoji.DecodeString(a)
-	}
-	return decode, true, len(decode)
+func GetStartOfHourTime() time.Time {
+	n := time.Now().UTC()
+	return time.Date(n.Year(), n.Month(), n.Day(), n.Hour(), 0, 0, 0, time.UTC)
 }
 
-func DecodeAllDiscordEmoji(a string) (emojiStr []string) {
-	for {
-		decode, ok, n := DecodeDiscordEmoji(a)
-		if !ok {
-			break
-		}
-		emojiStr = append(emojiStr, decode)
-		a = a[n:]
-	}
-	return
+func EqualDate(a, b time.Time) bool {
+	a1, a2, a3 := a.Date()
+	b1, b2, b3 := b.Date()
+	return a1 == b1 && a2 == b2 && a3 == b3
 }

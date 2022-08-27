@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/MrMelon54/BigBen"
 	"github.com/MrMelon54/BigBen/tables"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -38,7 +37,7 @@ func main() {
 		log.Fatalf("Unable to sync database: %s\n", err)
 	}
 
-	ben, err := bigben.NewBigBen(engine, os.Getenv("TOKEN"), os.Getenv("APP_ID"), os.Getenv("GUILD_ID"))
+	ben, err := NewBigBen(engine, os.Getenv("TOKEN"), os.Getenv("APP_ID"), os.Getenv("GUILD_ID"))
 	if err != nil {
 		log.Fatalln(err)
 	}

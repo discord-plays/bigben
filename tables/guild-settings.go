@@ -1,6 +1,7 @@
 package tables
 
 type GuildSettings struct {
+	Id               int64  `xorm:"pk autoincr"`
 	GuildId          string `xorm:"guild_id"`
 	BongChannelId    string `xorm:"bong_channel_id"`
 	BongWebhookId    string `xorm:"bong_webhook_id"`

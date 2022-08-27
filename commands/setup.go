@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-var manageServerPerm int64 = discordgo.PermissionManageServer
-
 type setupCommand struct {
 	bot utils.MainBotInterface
 }
@@ -140,7 +138,6 @@ func (x *setupCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 				},
 			},
 			Components: []discordgo.MessageComponent{},
-			Content:    "Running setup command",
 			Flags:      discordgo.MessageFlagsEphemeral,
 		},
 	})

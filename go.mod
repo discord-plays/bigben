@@ -8,6 +8,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/joho/godotenv v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.9
+	github.com/robfig/cron v1.2.0
 	xorm.io/xorm v1.3.1
 )
 
