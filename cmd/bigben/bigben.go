@@ -25,11 +25,14 @@ type BigBen struct {
 	cron            *cron.Cron
 }
 
-func (b *BigBen) AppId() string { return b.appId }
+func (b *BigBen) Engine() *xorm.Engine {
+	return b.engine
+}
 
-func (b *BigBen) GuildId() string { return b.guildId }
-
+func (b *BigBen) AppId() string               { return b.appId }
+func (b *BigBen) GuildId() string             { return b.guildId }
 func (b *BigBen) Session() *discordgo.Session { return b.session }
+
 func NewBigBen(engine *xorm.Engine, token, appId, guildId string) (*BigBen, error) {
 	bot, err := discordgo.New("Bot " + token)
 	if err != nil {

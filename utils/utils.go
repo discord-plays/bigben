@@ -4,6 +4,7 @@ import (
 	"github.com/MrMelon54/BigBen/tables"
 	"github.com/bwmarrin/discordgo"
 	"time"
+	"xorm.io/xorm"
 )
 
 type MainBotInterface interface {
@@ -12,6 +13,7 @@ type MainBotInterface interface {
 	Session() *discordgo.Session
 	GetGuildSettings(guildId string) (tables.GuildSettings, error)
 	PutGuildSettings(guildSettings tables.GuildSettings) error
+	Engine() *xorm.Engine
 }
 
 func GetStartOfHourTime() time.Time {
