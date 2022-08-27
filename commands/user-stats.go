@@ -40,8 +40,8 @@ func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.Interactio
 	}
 	var total float64
 	var count int64
-	for _, i := range a {
-		total += i.Timestamp.Sub(i.Timestamp).Seconds()
+	for _, j := range a {
+		total += j.Timestamp.Sub(j.MessageTimestamp).Seconds()
 		count++
 	}
 	average := total / float64(count)
@@ -59,7 +59,7 @@ func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.Interactio
 						},
 						{
 							Name:  "Average Reaction Time",
-							Value: fmt.Sprintf("%.3f", average),
+							Value: fmt.Sprintf("%.3fs", average),
 						},
 					},
 				},
