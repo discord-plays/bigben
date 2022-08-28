@@ -90,7 +90,7 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 	case "click-speed":
 		title = "Click Speed Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
