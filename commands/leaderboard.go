@@ -17,10 +17,14 @@ type leaderboardCountTable struct {
 	count  int64  `xorm:"a"`
 }
 
+func (l leaderboardCountTable) TableName() string { return "bong_log" }
+
 type leaderboardAverageTable struct {
 	userId  string  `xorm:"user_id"`
 	average float64 `xorm:"a"`
 }
+
+func (l leaderboardAverageTable) TableName() string { return "bong_log" }
 
 func (x *leaderboardCommand) Init(bot utils.MainBotInterface) {
 	x.bot = bot

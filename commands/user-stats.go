@@ -16,6 +16,8 @@ type userStatsAverageTable struct {
 	average float64 `xorm:"b"`
 }
 
+func (u userStatsAverageTable) TableName() string { return "bong_log" }
+
 func (x *userStatsCommand) Init(bot utils.MainBotInterface) {
 	x.bot = bot
 }
