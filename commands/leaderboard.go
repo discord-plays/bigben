@@ -95,16 +95,18 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		rows := make([]string, len(a))
+		fmt.Println(a)
+		rows = make([]string, len(a))
 		for i, j := range a {
 			if i >= 10 {
 				break
 			}
-			rows[i] = fmt.Sprintf("%d. <@%s> (%.3f bongs)", i+1, j.UserId, j.Average)
+			rows[i] = fmt.Sprintf("%d. <@%s> (%.3f average reaction speed)", i+1, j.UserId, j.Average)
 		}
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
+		fmt.Println(rows)
 	}
 	if rows == nil {
 		return
@@ -119,6 +121,6 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 		},
 	})
 	if err != nil {
-		log.Printf("[LeaderboardCommand] Failed to send interaction: %s\n", err)
+		log.Printf("[LeaderboardCommand] Failed to edit interaction: %s\n", err)
 	}
 }
