@@ -13,6 +13,11 @@ import (
 	"xorm.io/xorm"
 )
 
+const (
+	bongCron          = "0 0 * * * *"
+	updateMessageCron = "*/2 * * * * *"
+)
+
 type BigBen struct {
 	engine          *xorm.Engine
 	appId           string
@@ -76,8 +81,8 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId string, bot *discordgo
 		}
 	})
 	b.cron = cron.New()
-	_ = b.cron.AddFunc("0 0 * * * *", b.bingBong)
-	_ = b.cron.AddFunc("*/2 * * * * *", b.updateMessageData)
+	_ = b.cron.AddFunc(bongCron, b.bingBong)
+	_ = b.cron.AddFunc(updateMessageCron, b.updateMessageData)
 	b.cron.Start()
 	return b, nil
 }
@@ -129,7 +134,9 @@ func (b *BigBen) updateMessageData() {
 		}
 		g.Lock.Lock()
 		if g.Dirty {
+			g.Dirty = false
 			go b.internalEditBongMessage(i.BongChannelId, g.MessageId, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), g.ClickNames)
+			go b.internalBongRoleAssign(i.GuildId, g.MessageId, i.BongRoleId, g.ClickIds)
 		}
 		g.Lock.Unlock()
 	}
@@ -195,6 +202,54 @@ func (b *BigBen) internalEditBongMessage(channelId, messageId, title string, emo
 	})
 	if err != nil {
 		log.Printf("[internalEditBongMessage(\"%s\")] Error: %s\n", channelId, err)
+	}
+}
+
+func (b *BigBen) internalBongRoleAssign(guildId, messageId, roleId string, clickIds []string) {
+	if len(clickIds) > 1 {
+		return
+	}
+	var a []tables.RoleLog
+	err := b.engine.Where("guild_id = ? and message_id != ?", guildId, messageId).Find(&a)
+	if err != nil {
+		log.Printf("[internalBongRoleAssign()] Database error (get role log row): %s\n", err)
+		return
+	}
+	c := make([]int64, len(a))
+	for i, row := range a {
+		c[i] = row.Id
+		if row.UserId == clickIds[0] {
+			continue
+		}
+		err = b.session.GuildMemberRoleRemove(row.GuildId, row.UserId, row.RoleId)
+		if err != nil {
+			log.Printf("[internalBongRoleAssign()] Failed to remove guild member role: %s\n", err)
+		}
+	}
+	_, err = b.engine.In("id", c).Delete(&tables.RoleLog{})
+	if err != nil {
+		log.Printf("[internalBongRoleAssign()] Database error (delete checked ids): %s\n", err)
+	}
+
+	// Check if the member has the role before assigning it
+	_, err = b.engine.Insert(&tables.RoleLog{GuildId: guildId, MessageId: messageId, RoleId: roleId, UserId: clickIds[0]})
+	if err != nil {
+		log.Printf("[internalBongRoleAssign()] Database error (insert role log row): %s\n", err)
+	}
+	member, err := b.session.GuildMember(guildId, clickIds[0])
+	if err != nil {
+		log.Printf("[internalBongRoleAssign()] Failed to get guild member: %s\n", err)
+		return
+	}
+	for _, i := range member.Roles {
+		if i == roleId {
+			return
+		}
+	}
+	err = b.session.GuildMemberRoleAdd(guildId, clickIds[0], roleId)
+	if err != nil {
+		log.Printf("[internalBongRoleAssign()] Failed to add guild member: %s\n", err)
+		return
 	}
 }
 

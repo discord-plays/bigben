@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to load database (\"%s\"): %s\n", dbEnv, err)
 	}
-	err = engine.Sync(&tables.BongLog{}, &tables.GuildSettings{})
+	err = engine.Sync(&tables.BongLog{}, &tables.GuildSettings{}, &tables.RoleLog{})
 	if err != nil {
 		log.Fatalf("Unable to sync database: %s\n", err)
 	}
