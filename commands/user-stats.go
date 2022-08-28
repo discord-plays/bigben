@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"github.com/MrMelon54/BigBen/tables"
 	"github.com/MrMelon54/BigBen/utils"
 	"github.com/bwmarrin/discordgo"
 	"log"
@@ -11,12 +12,10 @@ type userStatsCommand struct {
 	bot utils.MainBotInterface
 }
 
-type userStatsAverageTable struct {
-	count   int64   `xorm:"a"`
-	average float64 `xorm:"b"`
+type userStatsTable struct {
+	Count   int64   `xorm:"a"`
+	Average float64 `xorm:"b"`
 }
-
-func (u userStatsAverageTable) TableName() string { return "bong_log" }
 
 func (x *userStatsCommand) Init(bot utils.MainBotInterface) {
 	x.bot = bot
@@ -40,14 +39,14 @@ func (x *userStatsCommand) Command() discordgo.ApplicationCommand {
 func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	options := i.ApplicationCommandData().Options
 	user := options[0].UserValue(s)
-	var a userStatsAverageTable
-	ok, err := x.bot.Engine().Where("guild_id = ? and user_id = ?", i.GuildID, user.ID).Select("count(timestamp) as a, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as b").Get(&a)
+	var a userStatsTable
+	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ?", i.GuildID, user.ID).Select("count(timestamp) as a, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as b").Get(&a)
 	if err != nil {
 		log.Printf("[UserStatsCommand] Database error: %s\n", err)
 		return
 	}
 	if ok {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Embeds: []*discordgo.MessageEmbed{
@@ -57,19 +56,22 @@ func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.Interactio
 						Fields: []*discordgo.MessageEmbedField{
 							{
 								Name:  "First Bong Count",
-								Value: fmt.Sprint(a.count),
+								Value: fmt.Sprint(a.Count),
 							},
 							{
 								Name:  "Average Reaction Time",
-								Value: fmt.Sprintf("%.3fs", a.average),
+								Value: fmt.Sprintf("%.3fs", a.Average),
 							},
 						},
 					},
 				},
 			},
 		})
+		if err != nil {
+			log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
+		}
 	} else {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Embeds: []*discordgo.MessageEmbed{
@@ -81,5 +83,8 @@ func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.Interactio
 				},
 			},
 		})
+		if err != nil {
+			log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
+		}
 	}
 }
