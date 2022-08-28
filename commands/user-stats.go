@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MrMelon54/BigBen/utils"
 	"github.com/bwmarrin/discordgo"
+	"log"
 )
 
 type userStatsCommand struct {
@@ -40,6 +41,7 @@ func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.Interactio
 	var a userStatsAverageTable
 	ok, err := x.bot.Engine().Where("guild_id = ? and user_id = ?", i.GuildID, user.ID).Select("count(timestamp) as a, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as b").Get(&a)
 	if err != nil {
+		log.Printf("[UserStatsCommand] Database error: %s\n", err)
 		return
 	}
 	if ok {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MrMelon54/BigBen/utils"
 	"github.com/bwmarrin/discordgo"
+	"log"
 	"strings"
 )
 
@@ -55,6 +56,7 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 		var a []leaderboardCountTable
 		err := x.bot.Engine().Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, count(user_id) as a").Find(&a)
 		if err != nil {
+			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
 		rows = make([]string, len(a))
@@ -72,6 +74,7 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 		var a []leaderboardAverageTable
 		err := x.bot.Engine().Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
 		if err != nil {
+			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
 		rows := make([]string, len(a))
