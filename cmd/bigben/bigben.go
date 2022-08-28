@@ -249,6 +249,8 @@ func (b *BigBen) ClickBong(s *discordgo.Session, i *discordgo.InteractionCreate)
 	member := i.Member
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{Type: discordgo.InteractionResponseDeferredMessageUpdate})
 	b.bongLock.Lock()
-	b.currentBong.TriggerClick(guildId, messageId, member.User.ID, member.User.String())
+	if b.currentBong != nil {
+		b.currentBong.TriggerClick(guildId, messageId, member.User.ID, member.User.String())
+	}
 	b.bongLock.Unlock()
 }
