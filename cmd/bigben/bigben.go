@@ -8,14 +8,16 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/robfig/cron"
 	"log"
+	"os"
 	"sync"
 	"time"
 	"xorm.io/xorm"
 )
 
 const (
-	bongCron          = "0 0 * * * *"
-	updateMessageCron = "*/2 * * * * *"
+	bongCron          = "0 0 * * * *"    // @hourly
+	bongDebugCron     = "*/30 * * * * *" // every 30 seconds
+	updateMessageCron = "*/2 * * * * *"  // every 2 seconds
 )
 
 type BigBen struct {
@@ -81,7 +83,11 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId string, bot *discordgo
 		}
 	})
 	b.cron = cron.New()
-	_ = b.cron.AddFunc(bongCron, b.bingBong)
+	if os.Getenv("DEBUG_MODE") == "1" {
+		_ = b.cron.AddFunc(bongDebugCron, b.bingBong)
+	} else {
+		_ = b.cron.AddFunc(bongCron, b.bingBong)
+	}
 	_ = b.cron.AddFunc(updateMessageCron, b.updateMessageData)
 	b.cron.Start()
 	return b, nil

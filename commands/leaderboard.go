@@ -42,6 +42,11 @@ func (x *leaderboardCommand) Command() discordgo.ApplicationCommand {
 				Description: "Click speed leaderboard",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 			},
+			{
+				Name:        "click-long",
+				Description: "Longest click leaderboard",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
 		},
 	}
 }
@@ -95,18 +100,34 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		fmt.Println(a)
 		rows = make([]string, len(a))
 		for i, j := range a {
 			if i >= 10 {
 				break
 			}
-			rows[i] = fmt.Sprintf("%d. <@%s> (%.3f average reaction speed)", i+1, j.UserId, j.Average)
+			rows[i] = fmt.Sprintf("%d. <@%s> (%.3fs average reaction speed)", i+1, j.UserId, j.Average)
 		}
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
-		fmt.Println(rows)
+	case "click-long":
+		title = "Click Long Leaderboard"
+		var a []leaderboardAverageTable
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, max(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		if err != nil {
+			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
+			return
+		}
+		rows = make([]string, len(a))
+		for i, j := range a {
+			if i >= 10 {
+				break
+			}
+			rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
+		}
+		if len(rows) == 0 {
+			rows = []string{"No bong clicks found"}
+		}
 	}
 	if rows == nil {
 		return
