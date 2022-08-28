@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"github.com/MrMelon54/BigBen/tables"
 	"sync"
 	"time"
@@ -68,7 +69,9 @@ func (c *CurrentBong) internalLoop() {
 					}
 				}
 				g.ClickIds = append(g.ClickIds, i.UserId)
-				g.ClickNames = append(g.ClickNames, i.Name)
+				tf := i.Time.Format("15:04 UTC")
+				ts := i.Time.Sub(g.MessageTime).Seconds()
+				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %.3fs", i.Name, tf, ts))
 				g.Dirty = true
 				used = true
 			}
