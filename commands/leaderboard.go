@@ -7,6 +7,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"strings"
+	"time"
 )
 
 type leaderboardCommand struct {
@@ -45,6 +46,11 @@ func (x *leaderboardCommand) Command() discordgo.ApplicationCommand {
 			{
 				Name:        "click-long",
 				Description: "Longest click leaderboard",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
+			{
+				Name:        "click-short",
+				Description: "Shortest click leaderboard",
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 			},
 		},
@@ -123,7 +129,37 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 			if i >= 10 {
 				break
 			}
-			rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
+			duration, err := time.ParseDuration(fmt.Sprintf("%fs", j.Average))
+			if err != nil {
+				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
+				return
+			}
+			duration = duration.Truncate(time.Millisecond)
+			rows[i] = fmt.Sprintf("%d. <@%s> (%s slowest reaction speed)", i+1, j.UserId, duration)
+		}
+		if len(rows) == 0 {
+			rows = []string{"No bong clicks found"}
+		}
+	case "click-short":
+		title = "Click Short Leaderboard"
+		var a []leaderboardAverageTable
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, min(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		if err != nil {
+			log.Printf("[LeaderbaordCommand] Database error: %s\n", err)
+			return
+		}
+		rows = make([]string, len(a))
+		for i, j := range a {
+			if i >= 10 {
+				break
+			}
+			duration, err := time.ParseDuration(fmt.Sprintf("%fs", j.Average))
+			if err != nil {
+				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs quickest reaction speed)", i+1, j.UserId, j.Average)
+				return
+			}
+			duration = duration.Truncate(time.Millisecond)
+			rows[i] = fmt.Sprintf("%d. <@%s> (%s quickest reaction speed)", i+1, j.UserId, duration)
 		}
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}

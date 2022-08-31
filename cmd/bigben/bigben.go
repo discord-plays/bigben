@@ -212,7 +212,7 @@ func (b *BigBen) internalEditBongMessage(channelId, messageId, title string, emo
 }
 
 func (b *BigBen) internalBongRoleAssign(guildId, messageId, roleId string, clickIds []string) {
-	if len(clickIds) > 1 {
+	if len(clickIds) < 1 {
 		return
 	}
 	var a []tables.RoleLog
@@ -237,25 +237,14 @@ func (b *BigBen) internalBongRoleAssign(guildId, messageId, roleId string, click
 		log.Printf("[internalBongRoleAssign()] Database error (delete checked ids): %s\n", err)
 	}
 
-	// Check if the member has the role before assigning it
+	// Just assign the role and let Discord check it
 	_, err = b.engine.Insert(&tables.RoleLog{GuildId: guildId, MessageId: messageId, RoleId: roleId, UserId: clickIds[0]})
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (insert role log row): %s\n", err)
 	}
-	member, err := b.session.GuildMember(guildId, clickIds[0])
-	if err != nil {
-		log.Printf("[internalBongRoleAssign()] Failed to get guild member: %s\n", err)
-		return
-	}
-	for _, i := range member.Roles {
-		if i == roleId {
-			return
-		}
-	}
 	err = b.session.GuildMemberRoleAdd(guildId, clickIds[0], roleId)
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Failed to add guild member: %s\n", err)
-		return
 	}
 }
 
