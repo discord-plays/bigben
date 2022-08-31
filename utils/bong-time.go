@@ -70,8 +70,9 @@ func (c *CurrentBong) internalLoop() {
 				}
 				g.ClickIds = append(g.ClickIds, i.UserId)
 				tf := i.Time.Format("15:04 UTC")
-				ts := i.Time.Sub(g.MessageTime).Seconds()
-				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %.3fs", i.Name, tf, ts))
+				ts := i.Time.Sub(g.MessageTime)
+				ts = ts.Truncate(time.Millisecond)
+				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %s", i.Name, tf, ts))
 				g.Dirty = true
 				used = true
 			}
