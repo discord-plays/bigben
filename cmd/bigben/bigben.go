@@ -212,6 +212,9 @@ func (b *BigBen) internalEditBongMessage(channelId, messageId, title string, emo
 }
 
 func (b *BigBen) internalBongRoleAssign(guildId, messageId, roleId string, clickIds []string) {
+	if roleId == "" {
+		return
+	}
 	if len(clickIds) < 1 {
 		return
 	}
