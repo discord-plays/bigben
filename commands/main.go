@@ -1,27 +1,25 @@
 package commands
 
 import (
-	"github.com/MrMelon54/BigBen/utils"
-	"github.com/bwmarrin/discordgo"
+	"github.com/MrMelon54/BigBen/inter"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 )
 
-var (
-	manageServerPerm int64 = discordgo.PermissionManageServer
-	prebuiltHandlers       = []CommandHandler{
-		&setupCommand{},
-		&leaderboardCommand{},
-		&userStatsCommand{},
-	}
-)
-
-type CommandList []*discordgo.ApplicationCommand
-type CommandHandler interface {
-	Init(utils.MainBotInterface)
-	Command() discordgo.ApplicationCommand
-	Handler(s *discordgo.Session, i *discordgo.InteractionCreate)
+var prebuiltHandlers = []CommandHandler{
+	&setupCommand{},
+	&leaderboardCommand{},
+	&userStatsCommand{},
 }
 
-func InitCommands(bot utils.MainBotInterface) (CommandList, map[string]CommandHandler) {
+type CommandList []discord.ApplicationCommandCreate
+type CommandHandler interface {
+	Init(botInterface inter.MainBotInterface)
+	Command() discord.SlashCommandCreate
+	Handler(event *events.ApplicationCommandInteractionCreate)
+}
+
+func InitCommands(bot inter.MainBotInterface) (CommandList, map[string]CommandHandler) {
 	var commands CommandList
 	commandHandlers := make(map[string]CommandHandler, len(prebuiltHandlers))
 

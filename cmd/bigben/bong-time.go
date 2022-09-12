@@ -1,8 +1,11 @@
-package utils
+package main
 
 import (
 	"fmt"
 	"github.com/MrMelon54/BigBen/tables"
+	"github.com/MrMelon54/BigBen/utils"
+	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
 	"sync"
 	"time"
 	"xorm.io/xorm"
@@ -14,27 +17,26 @@ type CurrentBong struct {
 	StartTime time.Time
 	EndTime   time.Time
 	mapLock   *sync.RWMutex
-	guilds    map[string]*GuildCurrentBong
+	guilds    map[snowflake.ID]*GuildCurrentBong
 	mChan     chan ClickInfo
 	mDone     chan struct{}
 }
 
 type GuildCurrentBong struct {
-	Lock        *sync.RWMutex
-	Dirty       bool
-	Emoji       string
-	MessageId   string
-	ClickIds    []string
-	ClickNames  []string
-	MessageTime time.Time
+	Lock       *sync.RWMutex
+	Dirty      bool
+	Emoji      string
+	MessageId  snowflake.ID
+	ClickIds   []snowflake.ID
+	ClickNames []string
 }
 
 type ClickInfo struct {
-	GuildId   string
-	MessageId string
-	UserId    string
+	GuildId   snowflake.ID
+	MessageId snowflake.ID
+	UserId    snowflake.ID
+	InterId   snowflake.ID
 	Name      string
-	Time      time.Time
 }
 
 func NewCurrentBong(engine *xorm.Engine, text string, sTime, eTime time.Time) *CurrentBong {
@@ -44,7 +46,7 @@ func NewCurrentBong(engine *xorm.Engine, text string, sTime, eTime time.Time) *C
 		StartTime: sTime,
 		EndTime:   eTime,
 		mapLock:   &sync.RWMutex{},
-		guilds:    make(map[string]*GuildCurrentBong),
+		guilds:    make(map[snowflake.ID]*GuildCurrentBong),
 		mChan:     make(chan ClickInfo, 256),
 		mDone:     make(chan struct{}, 1),
 	}
@@ -61,7 +63,8 @@ func (c *CurrentBong) internalLoop() {
 			g := c.GuildMapItem(i.GuildId)
 			g.Lock.Lock()
 			used := false
-			mt := g.MessageTime
+			ct := i.InterId.Time()
+			mt := i.MessageId.Time()
 			if g.MessageId == i.MessageId {
 				for _, j := range g.ClickIds {
 					if j == i.UserId {
@@ -69,9 +72,8 @@ func (c *CurrentBong) internalLoop() {
 					}
 				}
 				g.ClickIds = append(g.ClickIds, i.UserId)
-				tf := i.Time.Format("15:04 UTC")
-				ts := i.Time.Sub(g.MessageTime)
-				ts = ts.Truncate(time.Millisecond)
+				tf := ct.Format("15:04:05.000 UTC")
+				ts := ct.Sub(mt)
 				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %s", i.Name, tf, ts))
 				g.Dirty = true
 				used = true
@@ -80,10 +82,10 @@ func (c *CurrentBong) internalLoop() {
 			g.Lock.Unlock()
 			if used {
 				_, _ = c.Engine.Insert(&tables.BongLog{
-					GuildId:          i.GuildId,
-					UserId:           i.UserId,
-					Timestamp:        i.Time,
-					MessageTimestamp: mt,
+					GuildId: utils.XormSnowflake(i.GuildId),
+					UserId:  utils.XormSnowflake(i.UserId),
+					MsgId:   utils.XormSnowflake(g.MessageId),
+					InterId: utils.XormSnowflake(i.InterId),
 				})
 			}
 		}
@@ -94,7 +96,7 @@ func (c *CurrentBong) Kill() {
 	close(c.mDone)
 }
 
-func (c *CurrentBong) GuildMapItem(guildId string) *GuildCurrentBong {
+func (c *CurrentBong) GuildMapItem(guildId snowflake.ID) *GuildCurrentBong {
 	c.mapLock.RLock()
 	g := c.guilds[guildId]
 	c.mapLock.RUnlock()
@@ -104,25 +106,26 @@ func (c *CurrentBong) GuildMapItem(guildId string) *GuildCurrentBong {
 func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 	c.mapLock.Lock()
 	for _, i := range all {
-		c.guilds[i.GuildId] = &GuildCurrentBong{
+		c.guilds[snowflake.ID(i.GuildId)] = &GuildCurrentBong{
 			Lock:       &sync.RWMutex{},
-			Emoji:      RandomEmoji(i.BongEmoji),
-			ClickIds:   []string{},
+			Emoji:      utils.RandomEmoji(i.BongEmoji),
+			ClickIds:   []snowflake.ID{},
 			ClickNames: []string{},
 		}
 	}
 	c.mapLock.Unlock()
 }
 
-func (c *CurrentBong) TriggerClick(guildId, messageId, userId, name string) {
+func (c *CurrentBong) TriggerClick(event *events.ComponentInteractionCreate) {
+	member := event.Member()
 	if c.mChan == nil {
 		return
 	}
 	c.mChan <- ClickInfo{
-		GuildId:   guildId,
-		MessageId: messageId,
-		UserId:    userId,
-		Name:      name,
-		Time:      time.Now(),
+		GuildId:   *event.GuildID(),
+		MessageId: event.Message.ID,
+		UserId:    member.User.ID,
+		InterId:   event.ID(),
+		Name:      member.User.Tag(),
 	}
 }

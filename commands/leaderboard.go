@@ -2,16 +2,18 @@ package commands
 
 import (
 	"fmt"
+	"github.com/MrMelon54/BigBen/inter"
 	"github.com/MrMelon54/BigBen/tables"
-	"github.com/MrMelon54/BigBen/utils"
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 	"log"
+	"os"
 	"strings"
 	"time"
 )
 
 type leaderboardCommand struct {
-	bot utils.MainBotInterface
+	bot inter.MainBotInterface
 }
 
 type leaderboardCountTable struct {
@@ -24,66 +26,52 @@ type leaderboardAverageTable struct {
 	Average float64 `xorm:"a"`
 }
 
-func (x *leaderboardCommand) Init(bot utils.MainBotInterface) {
+func (x *leaderboardCommand) Init(bot inter.MainBotInterface) {
 	x.bot = bot
 }
 
-func (x *leaderboardCommand) Command() discordgo.ApplicationCommand {
-	return discordgo.ApplicationCommand{
+func (x *leaderboardCommand) Command() discord.SlashCommandCreate {
+	return discord.SlashCommandCreate{
 		Name:        "leaderboard",
 		Description: "Show the leaderboard",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Name:        "click-total",
-				Description: "Click total leaderboard",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-			},
-			{
-				Name:        "click-speed",
-				Description: "Click speed leaderboard",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-			},
-			{
-				Name:        "click-long",
-				Description: "Longest click leaderboard",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-			},
-			{
-				Name:        "click-short",
-				Description: "Shortest click leaderboard",
-				Type:        discordgo.ApplicationCommandOptionSubCommand,
-			},
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionSubCommand{Name: "click-total", Description: "Click total leaderboard"},
+			discord.ApplicationCommandOptionSubCommand{Name: "click-speed", Description: "Click speed leaderboard"},
+			discord.ApplicationCommandOptionSubCommand{Name: "click-long", Description: "Longest click leaderboard"},
+			discord.ApplicationCommandOptionSubCommand{Name: "click-short", Description: "Shortest click leaderboard"},
 		},
 	}
 }
 
-func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	options := i.ApplicationCommandData().Options
+func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
+	data := event.SlashCommandInteractionData()
 	var title string
 	var rows []string
 
 	// Send loading response
-	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds: []*discordgo.MessageEmbed{
-				{
-					Title: "Loading leaderboard...",
-					Color: 0xd4af37,
-				},
-			},
-		},
-	})
+	myBuilder := discord.NewMessageCreateBuilder()
+	myBuilder.SetEmbeds(discord.Embed{Title: "Leaderboards will be unavailable until further notice", Color: 0xd4af37})
+	err := event.CreateMessage(myBuilder.Build())
+	if err != nil {
+		log.Printf("[LeaderboardCommand] Failed to send interaction: %s\n", err)
+	}
+
+	if os.Getenv("THIS_IS_INVALID") != "THIS_IS_INVALID" {
+		return
+	}
+
+	// Send loading response
+	err = event.DeferCreateMessage(false)
 	if err != nil {
 		log.Printf("[LeaderboardCommand] Failed to send interaction: %s\n", err)
 	}
 
 	// Figure out actual response
-	switch options[0].Name {
+	switch *data.SubCommandName {
 	case "click-total":
 		title = "Click Total Leaderboard"
 		var a []leaderboardCountTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, count(user_id) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, count(user_id) as a").Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
@@ -101,7 +89,7 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 	case "click-speed":
 		title = "Click Speed Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
@@ -119,7 +107,7 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 	case "click-long":
 		title = "Click Long Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, max(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, max(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
@@ -143,7 +131,7 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 	case "click-short":
 		title = "Click Short Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", i.GuildID).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, min(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, min(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
 		if err != nil {
 			log.Printf("[LeaderbaordCommand] Database error: %s\n", err)
 			return
@@ -168,15 +156,13 @@ func (x *leaderboardCommand) Handler(s *discordgo.Session, i *discordgo.Interact
 	if rows == nil {
 		return
 	}
-	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Embeds: &[]*discordgo.MessageEmbed{
-			{
-				Title:       title,
-				Color:       0xd4af37,
-				Description: strings.Join(rows, "\n"),
-			},
-		},
+	updateBuilder := discord.NewMessageCreateBuilder()
+	updateBuilder.SetEmbeds(discord.Embed{
+		Title:       title,
+		Color:       0xd4af37,
+		Description: strings.Join(rows, "\n"),
 	})
+	err = event.CreateMessage(updateBuilder.Build())
 	if err != nil {
 		log.Printf("[LeaderboardCommand] Failed to edit interaction: %s\n", err)
 	}

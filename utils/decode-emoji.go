@@ -2,7 +2,8 @@ package utils
 
 import (
 	"github.com/Succo/emoji"
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 	"math/rand"
 	"regexp"
 )
@@ -31,24 +32,29 @@ func DecodeAllDiscordEmoji(a string) (emojiStr []string) {
 	return
 }
 
-func ConvertToComponentEmoji(a string) discordgo.ComponentEmoji {
+func ConvertToComponentEmoji(a string) discord.ComponentEmoji {
 	sub := decodeDiscordEmojiSource.FindStringSubmatch(a)
 	if len(sub) == 4 {
-		return discordgo.ComponentEmoji{
-			Animated: sub[1] == "a",
-			Name:     sub[2],
-			ID:       sub[3],
+		if sId, err := snowflake.Parse(sub[3]); err == nil {
+			return discord.ComponentEmoji{
+				ID:       sId,
+				Name:     sub[2],
+				Animated: sub[1] == "a",
+			}
 		}
 	}
 	decode, ok, _ := emoji.DecodeString(a)
 	if ok {
-		return discordgo.ComponentEmoji{Name: decode}
+		return discord.ComponentEmoji{Name: decode}
 	}
-	return discordgo.ComponentEmoji{}
+	return discord.ComponentEmoji{}
 }
 
 func RandomEmoji(a string) string {
 	emojis := DecodeAllDiscordEmoji(a)
+	if len(emojis) <= 0 {
+		return ""
+	}
 	n := rand.Intn(len(emojis))
 	return emojis[n]
 }

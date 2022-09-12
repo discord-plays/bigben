@@ -2,14 +2,13 @@ package main
 
 import (
 	"github.com/MrMelon54/BigBen/tables"
+	"github.com/disgoorg/snowflake/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"xorm.io/xorm"
 )
 
@@ -37,14 +36,18 @@ func main() {
 		log.Fatalf("Unable to sync database: %s\n", err)
 	}
 
-	ben, err := NewBigBen(engine, os.Getenv("TOKEN"), os.Getenv("APP_ID"), os.Getenv("GUILD_ID"))
+	appId, err := snowflake.Parse(os.Getenv("APP_ID"))
+	if err != nil {
+		log.Fatalf("Unable to parse APP_ID: %s\n", err)
+	}
+	guildId, err := snowflake.Parse(os.Getenv("GUILD_ID"))
+	if err != nil {
+		log.Fatalf("Unable to parse GUILD_ID: %s\n", err)
+	}
+
+	ben, err := NewBigBen(engine, os.Getenv("TOKEN"), appId, guildId)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	log.Println("[Main] BigBen is now bonging. Press CTRL-C for maintenance.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc
-	_ = ben.Exit()
+	ben.RunAndBlock()
 }

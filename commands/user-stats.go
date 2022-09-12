@@ -2,14 +2,15 @@ package commands
 
 import (
 	"fmt"
+	"github.com/MrMelon54/BigBen/inter"
 	"github.com/MrMelon54/BigBen/tables"
-	"github.com/MrMelon54/BigBen/utils"
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 	"log"
 )
 
 type userStatsCommand struct {
-	bot utils.MainBotInterface
+	bot inter.MainBotInterface
 }
 
 type userStatsTable struct {
@@ -17,18 +18,17 @@ type userStatsTable struct {
 	Average float64 `xorm:"b"`
 }
 
-func (x *userStatsCommand) Init(bot utils.MainBotInterface) {
+func (x *userStatsCommand) Init(bot inter.MainBotInterface) {
 	x.bot = bot
 }
 
-func (x *userStatsCommand) Command() discordgo.ApplicationCommand {
-	return discordgo.ApplicationCommand{
+func (x *userStatsCommand) Command() discord.SlashCommandCreate {
+	return discord.SlashCommandCreate{
 		Name:        "user-stats",
 		Description: "Stats for a single user",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionUser,
-				Name:        "user-option",
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionUser{
+				Name:        "user",
 				Description: "User",
 				Required:    true,
 			},
@@ -36,33 +36,24 @@ func (x *userStatsCommand) Command() discordgo.ApplicationCommand {
 	}
 }
 
-func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	options := i.ApplicationCommandData().Options
-	user := options[0].UserValue(s)
+func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
+	data := event.SlashCommandInteractionData()
+	user := data.User("user")
 	var a userStatsTable
-	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ?", i.GuildID, user.ID).Select("count(timestamp) as a, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as b").Get(&a)
+	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ?", event.GuildID().String(), user.ID.String()).Select("count(timestamp) as a, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as b").Get(&a)
 	if err != nil {
 		log.Printf("[UserStatsCommand] Database error: %s\n", err)
 		return
 	}
 	if ok {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Embeds: []*discordgo.MessageEmbed{
-					{
-						Title: fmt.Sprintf("Stats for %s", user.String()),
-						Color: 0xd4af37,
-						Fields: []*discordgo.MessageEmbedField{
-							{
-								Name:  "First Bong Count",
-								Value: fmt.Sprint(a.Count),
-							},
-							{
-								Name:  "Average Reaction Time",
-								Value: fmt.Sprintf("%.3fs", a.Average),
-							},
-						},
+		_ = event.CreateMessage(discord.MessageCreate{
+			Embeds: []discord.Embed{
+				{
+					Title: fmt.Sprintf("Stats for %s", user.String()),
+					Color: 0xd4af37,
+					Fields: []discord.EmbedField{
+						{Name: "First Bong Count", Value: fmt.Sprint(a.Count)},
+						{Name: "Average Reaction Time", Value: fmt.Sprintf("%.3fs", a.Average)},
 					},
 				},
 			},
@@ -71,15 +62,12 @@ func (x *userStatsCommand) Handler(s *discordgo.Session, i *discordgo.Interactio
 			log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
 		}
 	} else {
-		err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Embeds: []*discordgo.MessageEmbed{
-					{
-						Title:       fmt.Sprintf("Stats for %s", user.String()),
-						Color:       0xd4af37,
-						Description: "No stats found",
-					},
+		_ = event.CreateMessage(discord.MessageCreate{
+			Embeds: []discord.Embed{
+				{
+					Title:       fmt.Sprintf("Stats for %s", user.String()),
+					Color:       0xd4af37,
+					Description: "No Sstats found",
 				},
 			},
 		})

@@ -33,7 +33,7 @@ func GetBongTitle(t time.Time) BongOption {
 			return i
 		}
 	}
-	return BongOption{time.Time{}, defaultBongText}
+	return BongOption{t, defaultBongText}
 }
 
 var staticBongs = []BongOption{

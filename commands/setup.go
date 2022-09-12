@@ -2,86 +2,109 @@ package commands
 
 import (
 	"fmt"
+	"github.com/MrMelon54/BigBen/assets"
+	"github.com/MrMelon54/BigBen/inter"
 	"github.com/MrMelon54/BigBen/utils"
-	"github.com/bwmarrin/discordgo"
-	"log"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/json"
+	"github.com/disgoorg/snowflake/v2"
 	"strings"
+	"time"
 )
 
 type setupCommand struct {
-	bot utils.MainBotInterface
+	bot inter.MainBotInterface
 }
 
-func (x *setupCommand) Init(bot utils.MainBotInterface) {
+func (x *setupCommand) Init(bot inter.MainBotInterface) {
 	x.bot = bot
 }
 
-func (x *setupCommand) Command() discordgo.ApplicationCommand {
-	return discordgo.ApplicationCommand{
+func (x *setupCommand) Command() discord.SlashCommandCreate {
+	return discord.SlashCommandCreate{
 		Name:                     "setup",
 		Description:              "Setup the bot",
-		DefaultMemberPermissions: &manageServerPerm,
-		Options: []*discordgo.ApplicationCommandOption{
-			{
+		DefaultMemberPermissions: json.NewOptional[discord.Permissions](discord.PermissionManageServer),
+		Options: []discord.ApplicationCommandOption{
+			discord.ApplicationCommandOptionChannel{
 				Name:        "channel",
 				Description: "Choose the bong channel",
-				Type:        discordgo.ApplicationCommandOptionChannel,
-				ChannelTypes: []discordgo.ChannelType{
-					discordgo.ChannelTypeGuildText,
+				Required:    true,
+				ChannelTypes: []discord.ChannelType{
+					discord.ChannelTypeGuildText,
 				},
 			},
-			{
+			discord.ApplicationCommandOptionRole{
 				Name:        "role",
 				Description: "Choose a bong role",
-				Type:        discordgo.ApplicationCommandOptionRole,
+				Required:    true,
 			},
-			{
+			discord.ApplicationCommandOptionString{
 				Name:        "emoji",
 				Description: "Choose the bong emoji",
-				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
 			},
 		},
 	}
 }
 
-func (x *setupCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	guildSettings, err := x.bot.GetGuildSettings(i.GuildID)
+func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
+	if event.GuildID() == nil {
+		return
+	}
+	guildSettings, err := x.bot.GetGuildSettings(*event.GuildID())
 	if err != nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Failed to load guild settings",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
+		_ = event.CreateMessage(discord.MessageCreate{
+			Content: "Failed to load guild settings",
+			Flags:   discord.MessageFlagEphemeral,
 		})
 		return
 	}
-	options := i.ApplicationCommandData().Options
+	data := event.SlashCommandInteractionData()
 	changed := false
-	for _, j := range options {
+	for _, j := range data.Options {
 		switch j.Name {
 		case "channel":
-			if guildSettings.BongWebhookId != "" {
-				wh, err := s.WebhookDeleteWithToken(guildSettings.BongWebhookId, guildSettings.BongWebhookToken)
-				if err != nil {
-					log.Println(err)
-					return
+			guildSettings.BongChannelId = utils.XormSnowflake(data.Channel("channel").ID)
+			var create bool
+			if guildSettings.BongWebhookId != 0 {
+				getWebhook, err := x.bot.Session().Rest().GetWebhook(snowflake.ID(guildSettings.BongWebhookId))
+				if err != nil || getWebhook == nil {
+					create = true
 				}
-				log.Printf("%#v\n", wh)
 			}
-			guildSettings.BongChannelId = j.ChannelValue(s).ID
-			webhook, err := s.WebhookCreate(guildSettings.BongChannelId, "Big Ben", "")
-			if err != nil {
-				return
+			var wh discord.Webhook
+			var token string
+			if create {
+				n := utils.GetStartOfHourTime().Add(time.Hour)
+				a, err := x.bot.Session().Rest().CreateWebhook(snowflake.ID(guildSettings.BongChannelId), discord.WebhookCreate{
+					Name:   "Big Ben",
+					Avatar: assets.ReadClockFaceByTimeAsOptionalIcon(n),
+				})
+				if err != nil {
+					continue
+				}
+				token = a.Token
+				wh = a
+			} else {
+				wh, err = x.bot.Session().Rest().UpdateWebhook(snowflake.ID(guildSettings.BongWebhookId), discord.WebhookUpdate{
+					Name: utils.PString("Big Ben"),
+				})
+				if err != nil {
+					continue
+				}
 			}
-			guildSettings.BongWebhookId = webhook.ID
-			guildSettings.BongWebhookToken = webhook.Token
+			guildSettings.BongWebhookId = utils.XormSnowflake(wh.ID())
+			if token != "" {
+				guildSettings.BongWebhookToken = token
+			}
 			changed = true
 		case "role":
-			guildSettings.BongRoleId = j.RoleValue(s, i.GuildID).ID
+			guildSettings.BongRoleId = utils.XormSnowflake(data.Role("role").ID)
 			changed = true
 		case "emoji":
-			strVal := j.StringValue()
+			strVal := data.String("emoji")
 			guildSettings.BongEmoji = strings.Join(utils.DecodeAllDiscordEmoji(strVal), "")
 			changed = true
 		}
@@ -89,11 +112,11 @@ func (x *setupCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	chanVal := "None"
 	roleVal := "None"
 	emojiVal := "None"
-	if guildSettings.BongChannelId != "" {
-		chanVal = fmt.Sprintf("<#%s>", guildSettings.BongChannelId)
+	if guildSettings.BongChannelId != 0 {
+		chanVal = fmt.Sprintf("<#%s>", snowflake.ID(guildSettings.BongChannelId))
 	}
-	if guildSettings.BongRoleId != "" {
-		roleVal = fmt.Sprintf("<@&%s>", guildSettings.BongRoleId)
+	if guildSettings.BongRoleId != 0 {
+		roleVal = fmt.Sprintf("<@&%s>", snowflake.ID(guildSettings.BongRoleId))
 	}
 	if guildSettings.BongEmoji != "" {
 		emojiVal = guildSettings.BongEmoji
@@ -101,44 +124,31 @@ func (x *setupCommand) Handler(s *discordgo.Session, i *discordgo.InteractionCre
 	if changed {
 		err = x.bot.PutGuildSettings(guildSettings)
 		if err != nil {
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Failed to save guild settings",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
+			_ = event.CreateMessage(discord.MessageCreate{
+				Content: "Failed to save guild settings",
+				Flags:   discord.MessageFlagEphemeral,
 			})
 			return
 		}
 	}
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Embeds: []*discordgo.MessageEmbed{
-				{
-					Title: "Setup Big Ben",
-					Color: 0xd4af37,
-					Fields: []*discordgo.MessageEmbedField{
-						{
-							Name:  "Channel",
-							Value: chanVal,
-						},
-						{
-							Name:  "Role",
-							Value: roleVal,
-						},
-						{
-							Name:  "Emoji",
-							Value: emojiVal,
-						},
-					},
-					Footer: &discordgo.MessageEmbedFooter{
-						Text: "Made by MrMelon54",
-					},
+	_ = event.CreateMessage(discord.MessageCreate{
+		Embeds: []discord.Embed{
+			{
+				Title: "Setup Big Ben",
+				Color: 0xd4af37,
+				Fields: []discord.EmbedField{
+					{Name: "Channel", Value: chanVal},
+					{Name: "Role", Value: roleVal},
+					{Name: "Emoji", Value: emojiVal},
+				},
+				Footer: &discord.EmbedFooter{
+					Text:         "Made by MrMelon54",
+					IconURL:      "",
+					ProxyIconURL: "",
 				},
 			},
-			Components: []discordgo.MessageComponent{},
-			Flags:      discordgo.MessageFlagsEphemeral,
 		},
+		Components: []discord.ContainerComponent{},
+		Flags:      discord.MessageFlagEphemeral,
 	})
 }
