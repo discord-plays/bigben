@@ -652,3 +652,5 @@ xorm.io/builder v0.3.11-0.20220531020008-1bd24a7dc978 h1:bvLlAPW1ZMTWA32LuZMBEGH
 xorm.io/builder v0.3.11-0.20220531020008-1bd24a7dc978/go.mod h1:aUW0S9eb9VCaPohFCH3j7czOx1PMW3i1HrSzbLYGBSE=
 xorm.io/xorm v1.3.1 h1:z5egKrDoOLqZFhMjcGF4FBHiTmE5/feQoHclfhNidfM=
 xorm.io/xorm v1.3.1/go.mod h1:9NbjqdnjX6eyjRRhh01GHm64r6N9shTb/8Ak3YRt8Nw=
+xorm.io/xorm v1.3.2 h1:uTRRKF2jYzbZ5nsofXVUx6ncMaek+SHjWYtCXyZo1oM=
+xorm.io/xorm v1.3.2/go.mod h1:9NbjqdnjX6eyjRRhh01GHm64r6N9shTb/8Ak3YRt8Nw=
