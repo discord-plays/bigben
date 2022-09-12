@@ -42,7 +42,7 @@ func main() {
 	}
 	guildId, err := snowflake.Parse(os.Getenv("GUILD_ID"))
 	if err != nil {
-		log.Fatalf("Unable to parse GUILD_ID: %s\n", err)
+		guildId = 0
 	}
 
 	ben, err := NewBigBen(engine, os.Getenv("TOKEN"), appId, guildId)
