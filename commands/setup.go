@@ -9,6 +9,7 @@ import (
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/json"
 	"github.com/disgoorg/snowflake/v2"
+	"log"
 	"strings"
 	"time"
 )
@@ -59,6 +60,7 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 			Content: "Failed to load guild settings",
 			Flags:   discord.MessageFlagEphemeral,
 		})
+		log.Printf("Failed to load guild settings: %s\n", err)
 		return
 	}
 	data := event.SlashCommandInteractionData()
@@ -128,6 +130,7 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 				Content: "Failed to save guild settings",
 				Flags:   discord.MessageFlagEphemeral,
 			})
+			log.Printf("Failed to save guild settings: %s\n", err)
 			return
 		}
 	}
