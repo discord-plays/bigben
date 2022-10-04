@@ -10,4 +10,5 @@ type BongLog struct {
 	UserId  utils.XormSnowflake `xorm:"user_id"`
 	MsgId   utils.XormSnowflake `xorm:"msg_id"`
 	InterId utils.XormSnowflake `xorm:"inter_id"`
+	Won     *bool               `xorm:"won"`
 }

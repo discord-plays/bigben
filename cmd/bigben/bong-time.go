@@ -55,14 +55,16 @@ func NewCurrentBong(engine *xorm.Engine, text string, sTime, eTime time.Time) *C
 }
 
 func (c *CurrentBong) internalLoop() {
+outer:
 	for {
 		select {
 		case <-c.mDone:
-			break
+			break outer
 		case i := <-c.mChan:
 			g := c.GuildMapItem(i.GuildId)
 			g.Lock.Lock()
 			used := false
+			won := false
 			ct := i.InterId.Time()
 			mt := i.MessageId.Time()
 			if g.MessageId == i.MessageId {
@@ -77,6 +79,11 @@ func (c *CurrentBong) internalLoop() {
 				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %s", i.Name, tf, ts))
 				g.Dirty = true
 				used = true
+
+				// click ids should now be 1 if this player won
+				if len(g.ClickIds) == 1 {
+					won = true
+				}
 			}
 		exitClickCheck:
 			g.Lock.Unlock()
@@ -86,6 +93,7 @@ func (c *CurrentBong) internalLoop() {
 					UserId:  utils.XormSnowflake(i.UserId),
 					MsgId:   utils.XormSnowflake(g.MessageId),
 					InterId: utils.XormSnowflake(i.InterId),
+					Won:     &won,
 				})
 			}
 		}
