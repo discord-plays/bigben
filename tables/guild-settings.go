@@ -1,7 +1,7 @@
 package tables
 
 import (
-	"github.com/MrMelon54/BigBen/utils"
+	"github.com/MrMelon54/bigben/utils"
 )
 
 type GuildSettings struct {

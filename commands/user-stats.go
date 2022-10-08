@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/MrMelon54/BigBen/inter"
-	"github.com/MrMelon54/BigBen/tables"
+	"github.com/MrMelon54/bigben/inter"
+	"github.com/MrMelon54/bigben/tables"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"log"

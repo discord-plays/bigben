@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/MrMelon54/BigBen/tables"
+	"github.com/MrMelon54/bigben/tables"
 	"github.com/disgoorg/snowflake/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"

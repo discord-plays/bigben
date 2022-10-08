@@ -1,7 +1,7 @@
 package inter
 
 import (
-	"github.com/MrMelon54/BigBen/tables"
+	"github.com/MrMelon54/bigben/tables"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/snowflake/v2"
 	"xorm.io/xorm"

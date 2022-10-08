@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/MrMelon54/BigBen/tables"
-	"github.com/MrMelon54/BigBen/utils"
+	"github.com/MrMelon54/bigben/tables"
+	"github.com/MrMelon54/bigben/utils"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 	"sync"
@@ -67,6 +67,7 @@ outer:
 			won := false
 			ct := i.InterId.Time()
 			mt := i.MessageId.Time()
+			ts := ct.Sub(mt)
 			if g.MessageId == i.MessageId {
 				for _, j := range g.ClickIds {
 					if j == i.UserId {
@@ -75,7 +76,6 @@ outer:
 				}
 				g.ClickIds = append(g.ClickIds, i.UserId)
 				tf := ct.Format("15:04:05.000 UTC")
-				ts := ct.Sub(mt)
 				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %s", i.Name, tf, ts))
 				g.Dirty = true
 				used = true
@@ -89,11 +89,12 @@ outer:
 			g.Lock.Unlock()
 			if used {
 				_, _ = c.Engine.Insert(&tables.BongLog{
-					GuildId: utils.XormSnowflake(i.GuildId),
-					UserId:  utils.XormSnowflake(i.UserId),
-					MsgId:   utils.XormSnowflake(g.MessageId),
-					InterId: utils.XormSnowflake(i.InterId),
+					GuildId: i.GuildId,
+					UserId:  i.UserId,
+					MsgId:   g.MessageId,
+					InterId: i.InterId,
 					Won:     &won,
+					Speed:   ts.Milliseconds(),
 				})
 			}
 		}

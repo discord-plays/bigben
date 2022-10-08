@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/MrMelon54/BigBen/assets"
-	"github.com/MrMelon54/BigBen/commands"
-	"github.com/MrMelon54/BigBen/tables"
-	"github.com/MrMelon54/BigBen/utils"
+	"github.com/MrMelon54/bigben/assets"
+	"github.com/MrMelon54/bigben/commands"
+	"github.com/MrMelon54/bigben/tables"
+	"github.com/MrMelon54/bigben/utils"
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/cache"
@@ -201,9 +201,16 @@ func (b *BigBen) updateMessageData() {
 }
 
 func (b *BigBen) updateCommands() error {
-	_, err := b.client.Rest().SetGlobalCommands(b.appId, b.commands)
-	if err != nil {
-		return fmt.Errorf("bulk overwrite application commands error: %s", err)
+	if b.guildId == 0 {
+		_, err := b.client.Rest().SetGlobalCommands(b.appId, b.commands)
+		if err != nil {
+			return fmt.Errorf("bulk overwrite global application commands error: %s", err)
+		}
+	} else {
+		_, err := b.client.Rest().SetGuildCommands(b.appId, b.guildId, b.commands)
+		if err != nil {
+			return fmt.Errorf("bulk overwrite guild application commands error: %s", err)
+		}
 	}
 	return nil
 }

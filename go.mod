@@ -1,4 +1,4 @@
-module github.com/MrMelon54/BigBen
+module github.com/MrMelon54/bigben
 
 go 1.18
 
@@ -10,6 +10,7 @@ require (
 	github.com/joho/godotenv v1.4.0
 	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/snabb/isoweek v1.0.1
 	xorm.io/xorm v1.3.2
 )
 

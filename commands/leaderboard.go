@@ -2,12 +2,13 @@ package commands
 
 import (
 	"fmt"
-	"github.com/MrMelon54/BigBen/inter"
-	"github.com/MrMelon54/BigBen/tables"
+	"github.com/MrMelon54/bigben/inter"
+	"github.com/MrMelon54/bigben/tables"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
+	"github.com/snabb/isoweek"
 	"log"
-	"os"
 	"strings"
 	"time"
 )
@@ -17,13 +18,13 @@ type leaderboardCommand struct {
 }
 
 type leaderboardCountTable struct {
-	UserId string `xorm:"user_id"`
-	Count  int64  `xorm:"a"`
+	UserId snowflake.ID `xorm:"user_id"`
+	Count  int64        `xorm:"a"`
 }
 
 type leaderboardAverageTable struct {
-	UserId  string  `xorm:"user_id"`
-	Average float64 `xorm:"a"`
+	UserId  snowflake.ID `xorm:"user_id"`
+	Average float64      `xorm:"a"`
 }
 
 func (x *leaderboardCommand) Init(bot inter.MainBotInterface) {
@@ -35,43 +36,77 @@ func (x *leaderboardCommand) Command() discord.SlashCommandCreate {
 		Name:        "leaderboard",
 		Description: "Show the leaderboard",
 		Options: []discord.ApplicationCommandOption{
-			discord.ApplicationCommandOptionSubCommand{Name: "click-total", Description: "Click total leaderboard"},
-			discord.ApplicationCommandOptionSubCommand{Name: "click-speed", Description: "Click speed leaderboard"},
-			discord.ApplicationCommandOptionSubCommand{Name: "click-long", Description: "Longest click leaderboard"},
-			discord.ApplicationCommandOptionSubCommand{Name: "click-short", Description: "Shortest click leaderboard"},
+			discord.ApplicationCommandOptionString{Name: "time", Description: "Choose leaderboard time period", Required: true, Choices: []discord.ApplicationCommandOptionChoiceString{
+				{Name: "Annually", Value: "annually"},
+				{Name: "Bi-Annually", Value: "bi-annually"},
+				{Name: "Quarterly", Value: "quarterly"},
+				{Name: "Monthly", Value: "monthly"},
+				{Name: "Weekly", Value: "weekly"},
+				{Name: "Daily", Value: "daily"},
+			}},
+			discord.ApplicationCommandOptionString{Name: "type", Description: "Choose leaderboard type", Required: true, Choices: []discord.ApplicationCommandOptionChoiceString{
+				{Name: "Total Clicks", Value: "total-clicks"},
+				{Name: "Average Click Speed", Value: "average-speed"},
+				{Name: "Slowest Click Speed", Value: "slowest-speed"},
+				{Name: "Fastest Click Speed", Value: "fastest-speed"},
+			}},
 		},
 	}
 }
 
 func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
 	data := event.SlashCommandInteractionData()
+	n := time.Now().UTC()
 	var title string
 	var rows []string
 
 	// Send loading response
-	myBuilder := discord.NewMessageCreateBuilder()
-	myBuilder.SetEmbeds(discord.Embed{Title: "Leaderboards will be unavailable until further notice", Color: 0xd4af37})
-	err := event.CreateMessage(myBuilder.Build())
+	err := event.DeferCreateMessage(false)
 	if err != nil {
 		log.Printf("[LeaderboardCommand] Failed to send interaction: %s\n", err)
 	}
 
-	if os.Getenv("THIS_IS_INVALID") != "THIS_IS_INVALID" {
-		return
+	var startTime time.Time
+	var isDaily bool
+
+	switch data.String("time") {
+	case "annually":
+		startTime = time.Date(n.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+	case "bi-annually":
+		if n.Month() < time.July {
+			startTime = time.Date(n.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+		} else {
+			startTime = time.Date(n.Year(), time.July, 1, 0, 0, 0, 0, time.UTC)
+		}
+	case "quarterly":
+		switch {
+		case n.Month() < time.April:
+			startTime = time.Date(n.Year(), time.January, 1, 0, 0, 0, 0, time.UTC)
+		case n.Month() < time.July:
+			startTime = time.Date(n.Year(), time.April, 1, 0, 0, 0, 0, time.UTC)
+		case n.Month() < time.October:
+			startTime = time.Date(n.Year(), time.July, 1, 0, 0, 0, 0, time.UTC)
+		default:
+			startTime = time.Date(n.Year(), time.October, 1, 0, 0, 0, 0, time.UTC)
+		}
+	case "monthly":
+		startTime = time.Date(n.Year(), n.Month(), 1, 0, 0, 0, 0, time.UTC)
+	case "weekly":
+		y, w := n.ISOWeek()
+		startTime = isoweek.StartTime(y, w, time.UTC)
+	default:
+		startTime = time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC)
+		isDaily = true
 	}
 
-	// Send loading response
-	err = event.DeferCreateMessage(false)
-	if err != nil {
-		log.Printf("[LeaderboardCommand] Failed to send interaction: %s\n", err)
-	}
+	startFlake := snowflake.New(startTime)
 
 	// Figure out actual response
-	switch *data.SubCommandName {
-	case "click-total":
-		title = "Click Total Leaderboard"
+	switch data.String("type") {
+	case "total-clicks":
+		title = "Total Clicks Leaderboard"
 		var a []leaderboardCountTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, count(user_id) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, count(user_id) as a").Limit(10).Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
@@ -86,10 +121,10 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
-	case "click-speed":
-		title = "Click Speed Leaderboard"
+	case "average-speed":
+		title = "Average Click Speed Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, avg(speed) as a").Limit(10).Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
@@ -99,15 +134,21 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			if i >= 10 {
 				break
 			}
-			rows[i] = fmt.Sprintf("%d. <@%s> (%.3fs average reaction speed)", i+1, j.UserId, j.Average)
+			duration, err := time.ParseDuration(fmt.Sprintf("%fms", j.Average))
+			if err != nil {
+				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
+				return
+			}
+			duration = duration.Truncate(time.Millisecond)
+			rows[i] = fmt.Sprintf("%d. <@%s> (%s average reaction speed)", i+1, j.UserId, duration)
 		}
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
-	case "click-long":
-		title = "Click Long Leaderboard"
+	case "slowest-speed":
+		title = "Slowest Click Speed Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, max(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, max(speed) as a").Limit(10).Find(&a)
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
@@ -117,7 +158,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			if i >= 10 {
 				break
 			}
-			duration, err := time.ParseDuration(fmt.Sprintf("%fs", j.Average))
+			duration, err := time.ParseDuration(fmt.Sprintf("%fms", j.Average))
 			if err != nil {
 				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
 				return
@@ -128,10 +169,10 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
-	case "click-short":
-		title = "Click Short Leaderboard"
+	case "fastest-speed":
+		title = "Fastest Click Speed Leaderboard"
 		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ?", event.GuildID().String()).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, min(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as a").Find(&a)
+		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, min(speed) as a").Limit(10).Find(&a)
 		if err != nil {
 			log.Printf("[LeaderbaordCommand] Database error: %s\n", err)
 			return
@@ -141,7 +182,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			if i >= 10 {
 				break
 			}
-			duration, err := time.ParseDuration(fmt.Sprintf("%fs", j.Average))
+			duration, err := time.ParseDuration(fmt.Sprintf("%fms", j.Average))
 			if err != nil {
 				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs quickest reaction speed)", i+1, j.UserId, j.Average)
 				return
@@ -152,17 +193,27 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
+	default:
+		title = "Unknown Leaderboard"
+		rows = []string{"Please pick a valid leaderboard type"}
 	}
 	if rows == nil {
 		return
 	}
-	updateBuilder := discord.NewMessageCreateBuilder()
+
+	footerText := "Today"
+	if !isDaily {
+		footerText = "Since " + startTime.Format("2 Jan 2006")
+	}
+
+	updateBuilder := discord.NewMessageUpdateBuilder()
 	updateBuilder.SetEmbeds(discord.Embed{
 		Title:       title,
 		Color:       0xd4af37,
 		Description: strings.Join(rows, "\n"),
+		Footer:      &discord.EmbedFooter{Text: footerText},
 	})
-	err = event.CreateMessage(updateBuilder.Build())
+	_, err = event.Client().Rest().UpdateInteractionResponse(event.ApplicationID(), event.Token(), updateBuilder.Build())
 	if err != nil {
 		log.Printf("[LeaderboardCommand] Failed to edit interaction: %s\n", err)
 	}

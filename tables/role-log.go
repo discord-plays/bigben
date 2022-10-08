@@ -1,6 +1,6 @@
 package tables
 
-import "github.com/MrMelon54/BigBen/utils"
+import "github.com/MrMelon54/bigben/utils"
 
 type RoleLog struct {
 	Id        int64               `xorm:"pk autoincr"`
