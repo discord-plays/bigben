@@ -6,8 +6,6 @@ gitee.com/travelliu/dm v1.8.11192/go.mod h1:DHTzyhCrM843x9VdKVbZ+GKXGRbKM2sJ4Lxi
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
-github.com/MrMelon54/snowflake/v2 v2.0.0-20221008150118-014e1ebfc336 h1:Af9zMzNorSdr9mRNbzh29jdjJiaM+esQMwu9wjv2QYY=
-github.com/MrMelon54/snowflake/v2 v2.0.0-20221008150118-014e1ebfc336/go.mod h1:SPU9c2CNn5DSyb86QcKtdZgix9osEtKrHLW4rMhfLCs=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/Succo/countrymoji v0.0.0-20210317211339-7eade43d6139 h1:5ZoxOrbQ1+6fk7e0EL6zGJOMpmtDF1dAkyoCpWwTzHM=

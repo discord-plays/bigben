@@ -81,6 +81,7 @@ func NewBigBen(engine *xorm.Engine, token string, appId, guildId snowflake.ID) (
 	}})
 	return (&BigBen{}).init(engine, appId, guildId, client)
 }
+
 func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client bot.Client) (*BigBen, error) {
 	b.engine = engine
 	b.appId = appId
