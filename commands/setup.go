@@ -75,6 +75,8 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 				if err != nil || getWebhook == nil {
 					create = true
 				}
+			} else {
+				create = true
 			}
 			var wh discord.Webhook
 			var token string

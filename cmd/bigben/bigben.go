@@ -28,7 +28,7 @@ import (
 const (
 	bongCron          = "0 0 * * * *"   // @hourly
 	bongSetupCron     = "0 50 * * * *"  // @hourly at 50min
-	bongDebugCron     = "0 */5 * * * *" // every 5min
+	bongDebugCron     = "0 */2 * * * *" // every 2min
 	updateMessageCron = "*/2 * * * * *" // every 2sec
 )
 
@@ -142,8 +142,8 @@ func (b *BigBen) bingBong() {
 	b.bongLock.Lock()
 	now := utils.GetStartOfHourTime()
 	title := utils.GetBongTitle(now)
-	sTime := title.T
-	eTime := title.T.Add(time.Hour * 24)
+	sTime := now
+	eTime := now.Add(time.Hour * 24)
 	if b.currentBong != nil {
 		b.currentBong.Kill()
 	}

@@ -30,8 +30,6 @@ func GetBongTitle(t time.Time) BongOption {
 	options := GetBongOptions()
 	for _, i := range options {
 		if EqualDate(t, i.T) {
-			r := t.Round(time.Hour * 24)
-			i.T.Add(t.Sub(r))
 			return i
 		}
 	}
