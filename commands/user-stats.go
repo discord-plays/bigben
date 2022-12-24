@@ -9,6 +9,8 @@ import (
 	"log"
 )
 
+var _ CommandHandler = &userStatsCommand{}
+
 type userStatsCommand struct {
 	bot inter.MainBotInterface
 }

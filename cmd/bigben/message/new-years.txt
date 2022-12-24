@@ -1,0 +1,8 @@
+Looks like {{.OldYear}} was a fun year. Maybe not for you?
+But we sure had a fun time hitting the bong.
+
+Below is a link to the leaderboard from {{.OldYear}} the data will be wiped from the bot and only accessible online.
+
+You will have to "Login with Discord" to prove your account then choose one of the servers Big Ben is available in to view the leaderboard and your personal statistics.
+
+Welcome to {{.NewYear}} and I hope you have fun.

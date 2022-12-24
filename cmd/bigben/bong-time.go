@@ -6,6 +6,7 @@ import (
 	"github.com/MrMelon54/bigben/utils"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
+	"log"
 	"sync"
 	"time"
 	"xorm.io/xorm"
@@ -97,6 +98,22 @@ outer:
 					Speed:   ts.Milliseconds(),
 				})
 			}
+			userId := i.UserId
+			tag := i.Name
+			count, _ := c.Engine.Count(&tables.UserLog{Id: userId})
+			if count == 0 {
+				_, err := c.Engine.Insert(&tables.UserLog{Id: userId, Tag: tag})
+				if err != nil {
+					log.Printf("[CurrentBong::internalLoop()] Failed to insert into user log (%v, %s): %s\n", userId, tag, err)
+					return
+				}
+			} else {
+				_, err := c.Engine.Update(&tables.UserLog{Id: userId, Tag: tag}, tables.UserLog{Id: userId})
+				if err != nil {
+					log.Printf("[CurrentBong::internalLoop()] Failed to update user log (%v, %s): %s\n", userId, tag, err)
+					return
+				}
+			}
 		}
 	}
 }
@@ -115,7 +132,7 @@ func (c *CurrentBong) GuildMapItem(guildId snowflake.ID) *GuildCurrentBong {
 func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 	c.mapLock.Lock()
 	for _, i := range all {
-		c.guilds[snowflake.ID(i.GuildId)] = &GuildCurrentBong{
+		c.guilds[i.GuildId] = &GuildCurrentBong{
 			Lock:       &sync.RWMutex{},
 			Emoji:      utils.RandomEmoji(i.BongEmoji),
 			ClickIds:   []snowflake.ID{},

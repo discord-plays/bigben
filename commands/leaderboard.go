@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var _ CommandHandler = &leaderboardCommand{}
+
 type leaderboardCommand struct {
 	bot inter.MainBotInterface
 }

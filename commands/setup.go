@@ -8,11 +8,12 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/json"
-	"github.com/disgoorg/snowflake/v2"
 	"log"
 	"strings"
 	"time"
 )
+
+var _ CommandHandler = &setupCommand{}
 
 type setupCommand struct {
 	bot inter.MainBotInterface
@@ -68,10 +69,10 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	for _, j := range data.Options {
 		switch j.Name {
 		case "channel":
-			guildSettings.BongChannelId = utils.XormSnowflake(data.Channel("channel").ID)
+			guildSettings.BongChannelId = data.Channel("channel").ID
 			var create bool
 			if guildSettings.BongWebhookId != 0 {
-				getWebhook, err := x.bot.Session().Rest().GetWebhook(snowflake.ID(guildSettings.BongWebhookId))
+				getWebhook, err := x.bot.Session().Rest().GetWebhook(guildSettings.BongWebhookId)
 				if err != nil || getWebhook == nil {
 					create = true
 				}
@@ -82,7 +83,7 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 			var token string
 			if create {
 				n := utils.GetStartOfHourTime().Add(time.Hour)
-				a, err := x.bot.Session().Rest().CreateWebhook(snowflake.ID(guildSettings.BongChannelId), discord.WebhookCreate{
+				a, err := x.bot.Session().Rest().CreateWebhook(guildSettings.BongChannelId, discord.WebhookCreate{
 					Name:   "Big Ben",
 					Avatar: assets.ReadClockFaceByTimeAsOptionalIcon(n),
 				})
@@ -92,20 +93,20 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 				token = a.Token
 				wh = a
 			} else {
-				wh, err = x.bot.Session().Rest().UpdateWebhook(snowflake.ID(guildSettings.BongWebhookId), discord.WebhookUpdate{
+				wh, err = x.bot.Session().Rest().UpdateWebhook(guildSettings.BongWebhookId, discord.WebhookUpdate{
 					Name: utils.PString("Big Ben"),
 				})
 				if err != nil {
 					continue
 				}
 			}
-			guildSettings.BongWebhookId = utils.XormSnowflake(wh.ID())
+			guildSettings.BongWebhookId = wh.ID()
 			if token != "" {
 				guildSettings.BongWebhookToken = token
 			}
 			changed = true
 		case "role":
-			guildSettings.BongRoleId = utils.XormSnowflake(data.Role("role").ID)
+			guildSettings.BongRoleId = data.Role("role").ID
 			changed = true
 		case "emoji":
 			strVal := data.String("emoji")
@@ -117,10 +118,10 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	roleVal := "None"
 	emojiVal := "None"
 	if guildSettings.BongChannelId != 0 {
-		chanVal = fmt.Sprintf("<#%s>", snowflake.ID(guildSettings.BongChannelId))
+		chanVal = fmt.Sprintf("<#%s>", guildSettings.BongChannelId)
 	}
 	if guildSettings.BongRoleId != 0 {
-		roleVal = fmt.Sprintf("<@&%s>", snowflake.ID(guildSettings.BongRoleId))
+		roleVal = fmt.Sprintf("<@&%s>", guildSettings.BongRoleId)
 	}
 	if guildSettings.BongEmoji != "" {
 		emojiVal = guildSettings.BongEmoji

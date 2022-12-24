@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 )
 
@@ -38,7 +39,6 @@ func GetBongTitle(t time.Time) BongOption {
 
 var staticBongs = []BongOption{
 	{time.Date(0, time.February, 14, 0, 0, 0, 0, time.UTC), "Valentine's Bong 💝"},
-	{time.Date(0, time.April, 1, 0, 0, 0, 0, time.UTC), "Bing"},
 	{time.Date(0, time.April, 22, 0, 0, 0, 0, time.UTC), "Earth Bong 🌍"},
 	{time.Date(0, time.July, 2, 0, 0, 0, 0, time.UTC), "Midway Bong"},
 	{time.Date(0, time.August, 28, 0, 0, 0, 0, time.UTC), "Melon Bong 🍉"},
@@ -47,6 +47,9 @@ var staticBongs = []BongOption{
 }
 
 var dynamicBong = []DynamicBongOption{
+	func(now time.Time) BongOption {
+		return BongOption{time.Date(now.Year(), time.April, 1, 0, rand.Intn(60), 0, 0, time.UTC), "Bing"}
+	},
 	func(now time.Time) BongOption {
 		return BongOption{time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("%d Bong 🎆", now.Year())}
 	},
