@@ -5,6 +5,6 @@ import (
 )
 
 type UserLog struct {
-	Id  snowflake.ID `xorm:"pk 'id''" csv:"id"`
+	Id  snowflake.ID `xorm:"pk" csv:"id"`
 	Tag string       `xorm:"tag" csv:"tag"`
 }

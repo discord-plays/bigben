@@ -107,7 +107,6 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client b
 	b.bingSetup()
 
 	cronChristmas := b.messageNotification("Christmas", message.SendChristmasNotification)
-	cronNewYears := b.messageNotification("New Year's", message.SendNewYearNotification)
 	b.cron = cron.New(cron.WithSeconds())
 	if os.Getenv("DEBUG_MODE") == "1" {
 		_, _ = b.cron.AddFunc(bongDebugCron, b.bingBong)
@@ -117,14 +116,14 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client b
 	_, _ = b.cron.AddFunc(updateMessageCron, b.updateMessageData)
 	_, _ = b.cron.AddFunc(bongSetupCron, b.bingSetup)
 	_, _ = b.cron.AddFunc(bongChristmasCron, cronChristmas)
-	_, _ = b.cron.AddFunc(bongNewYearCron, cronNewYears)
+	_, _ = b.cron.AddFunc(bongNewYearCron, b.cronNewYears)
 	b.cron.Start()
 
 	commands.DebugCommands = map[string]func(){
 		"bingBong":  b.bingBong,
 		"bingSetup": b.bingSetup,
 		"christmas": cronChristmas,
-		"newYears":  cronNewYears,
+		"newYears":  b.cronNewYears,
 	}
 	return b, nil
 }
