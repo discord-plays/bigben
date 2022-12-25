@@ -1,5 +1,3 @@
-Merry Christmas 🎄
-
 As the year comes to an end the leaderboard data will be saved and displayed online. More information coming soon.
 
 I also added a way to save player names to display on the online leaderboard but that will only work if you click between now and the new year.
