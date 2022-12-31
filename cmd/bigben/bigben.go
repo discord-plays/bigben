@@ -46,6 +46,7 @@ type BigBen struct {
 	appId           snowflake.ID
 	guildId         snowflake.ID
 	client          bot.Client
+	uploadToken     string
 	commands        commands.CommandList
 	commandHandlers map[string]commands.CommandHandler
 	bongLock        *sync.Mutex
@@ -58,7 +59,7 @@ func (b *BigBen) AppId() snowflake.ID   { return b.appId }
 func (b *BigBen) GuildId() snowflake.ID { return b.guildId }
 func (b *BigBen) Session() bot.Client   { return b.client }
 
-func NewBigBen(engine *xorm.Engine, token string, appId, guildId snowflake.ID) (*BigBen, error) {
+func NewBigBen(engine *xorm.Engine, token, uploadToken string, appId, guildId snowflake.ID) (*BigBen, error) {
 	client, err := disgo.New(token, bot.WithCacheConfigOpts(
 		cache.WithCacheFlags(cache.FlagVoiceStates, cache.FlagMembers, cache.FlagChannels, cache.FlagGuilds, cache.FlagRoles),
 	), bot.WithGatewayConfigOpts(
@@ -80,14 +81,15 @@ func NewBigBen(engine *xorm.Engine, token string, appId, guildId snowflake.ID) (
 			presenceUpdate.Status = discord.OnlineStatusOnline
 		})
 	}})
-	return (&BigBen{}).init(engine, appId, guildId, client)
+	return (&BigBen{}).init(engine, appId, guildId, client, uploadToken)
 }
 
-func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client bot.Client) (*BigBen, error) {
+func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client bot.Client, uploadToken string) (*BigBen, error) {
 	b.engine = engine
 	b.appId = appId
 	b.guildId = guildId
 	b.client = client
+	b.uploadToken = uploadToken
 	b.commands, b.commandHandlers = commands.InitCommands(b)
 	b.bongLock = &sync.Mutex{}
 	b.currentBong = nil
