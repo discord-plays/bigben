@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MrMelon54/bigben/tables"
 	"github.com/MrMelon54/bigben/utils"
+	channelSorter "github.com/MrMelon54/channel-sorter"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 	"log"
@@ -30,6 +31,7 @@ type GuildCurrentBong struct {
 	MessageId  snowflake.ID
 	ClickIds   []snowflake.ID
 	ClickNames []string
+	In         chan ClickInfo
 }
 
 type ClickInfo struct {
@@ -64,8 +66,6 @@ outer:
 		case i := <-c.mChan:
 			g := c.GuildMapItem(i.GuildId)
 			g.Lock.Lock()
-			used := false
-			won := false
 			ct := i.InterId.Time()
 			mt := i.MessageId.Time()
 			ts := ct.Sub(mt)
@@ -79,41 +79,10 @@ outer:
 				tf := ct.Format("15:04:05.000 UTC")
 				g.ClickNames = append(g.ClickNames, fmt.Sprintf("%s | %s | %s", i.Name, tf, ts))
 				g.Dirty = true
-				used = true
-
-				// click ids should now be 1 if this player won
-				if len(g.ClickIds) == 1 {
-					won = true
-				}
+				g.In <- i
 			}
 		exitClickCheck:
 			g.Lock.Unlock()
-			if used {
-				_, _ = c.Engine.Insert(&tables.BongLog{
-					GuildId: i.GuildId,
-					UserId:  i.UserId,
-					MsgId:   g.MessageId,
-					InterId: i.InterId,
-					Won:     &won,
-					Speed:   ts.Milliseconds(),
-				})
-			}
-			userId := i.UserId
-			tag := i.Name
-			count, _ := c.Engine.Count(&tables.UserLog{Id: userId})
-			if count == 0 {
-				_, err := c.Engine.Insert(&tables.UserLog{Id: userId, Tag: tag})
-				if err != nil {
-					log.Printf("[CurrentBong::internalLoop()] Failed to insert into user log (%v, %s): %s\n", userId, tag, err)
-					return
-				}
-			} else {
-				_, err := c.Engine.Update(&tables.UserLog{Id: userId, Tag: tag}, tables.UserLog{Id: userId})
-				if err != nil {
-					log.Printf("[CurrentBong::internalLoop()] Failed to update user log (%v, %s): %s\n", userId, tag, err)
-					return
-				}
-			}
 		}
 	}
 }
@@ -132,12 +101,57 @@ func (c *CurrentBong) GuildMapItem(guildId snowflake.ID) *GuildCurrentBong {
 func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 	c.mapLock.Lock()
 	for _, i := range all {
-		c.guilds[i.GuildId] = &GuildCurrentBong{
+		y := &GuildCurrentBong{
 			Lock:       &sync.RWMutex{},
 			Emoji:      utils.RandomEmoji(i.BongEmoji),
 			ClickIds:   []snowflake.ID{},
 			ClickNames: []string{},
+			In:         make(chan ClickInfo),
 		}
+		c.guilds[i.GuildId] = y
+		go func() {
+			won := true
+			z := channelSorter.Sort[ClickInfo](time.Second*5, y.In, func(a ClickInfo, b ClickInfo) bool {
+				return a.InterId.Time().Before(b.InterId.Time())
+			})
+		kill:
+			for {
+				select {
+				case <-c.mDone:
+					break kill
+				case i2 := <-z:
+					for _, i := range i2 {
+						ct := i.InterId.Time()
+						mt := i.MessageId.Time()
+						ts := ct.Sub(mt)
+						_, _ = c.Engine.Insert(&tables.BongLog{
+							GuildId: i.GuildId,
+							UserId:  i.UserId,
+							MsgId:   i.MessageId,
+							InterId: i.InterId,
+							Won:     &won,
+							Speed:   ts.Milliseconds(),
+						})
+						userId := i.UserId
+						tag := i.Name
+						count, _ := c.Engine.Count(&tables.UserLog{Id: userId})
+						if count == 0 {
+							_, err := c.Engine.Insert(&tables.UserLog{Id: userId, Tag: tag})
+							if err != nil {
+								log.Printf("[CurrentBong::internalLoop()] Failed to insert into user log (%v, %s): %s\n", userId, tag, err)
+								return
+							}
+						} else {
+							_, err := c.Engine.Update(&tables.UserLog{Id: userId, Tag: tag}, tables.UserLog{Id: userId})
+							if err != nil {
+								log.Printf("[CurrentBong::internalLoop()] Failed to update user log (%v, %s): %s\n", userId, tag, err)
+								return
+							}
+						}
+					}
+				}
+			}
+		}()
 	}
 	c.mapLock.Unlock()
 }
