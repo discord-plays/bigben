@@ -144,6 +144,9 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 								goto tryBongLogInsert
 							}
 						}
+						if won {
+							won = false
+						}
 						userId := i.UserId
 						tag := i.Name
 						count, _ := c.Engine.Count(&tables.UserLog{Id: userId})
