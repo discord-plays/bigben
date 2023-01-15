@@ -124,7 +124,9 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 						ct := i.InterId.Time()
 						mt := i.MessageId.Time()
 						ts := ct.Sub(mt)
-						_, _ = c.Engine.Insert(&tables.BongLog{
+						n := 0
+					tryBongLogInsert:
+						_, err := c.Engine.Insert(&tables.BongLog{
 							GuildId: i.GuildId,
 							UserId:  i.UserId,
 							MsgId:   i.MessageId,
@@ -132,6 +134,16 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 							Won:     &won,
 							Speed:   ts.Milliseconds(),
 						})
+						if err != nil {
+							if n > 2 {
+								log.Println("Failed to insert into BongLog, giving up:", err)
+								log.Printf("Manual log entry: '%s,%s,%s,%s,%v,%v'\n", i.GuildId, i.UserId, i.MessageId, i.InterId, won, ts.Milliseconds())
+							} else {
+								log.Println("Failed to insert into BongLog, trying again:", err)
+								n++
+								goto tryBongLogInsert
+							}
+						}
 						userId := i.UserId
 						tag := i.Name
 						count, _ := c.Engine.Count(&tables.UserLog{Id: userId})
