@@ -15,7 +15,7 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
-	"github.com/disgoorg/disgo/json"
+	"github.com/disgoorg/json"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/robfig/cron/v3"
 	"log"
@@ -258,7 +258,7 @@ func (b *BigBen) PutGuildSettings(guildSettings tables.GuildSettings) error {
 func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf tables.GuildSettings, icon discord.Icon) {
 	defer wg.Done()
 	_, _ = b.client.Rest().UpdateWebhook(conf.BongWebhookId, discord.WebhookUpdate{
-		Avatar: json.NewOptional[discord.Icon](icon),
+		Avatar: json.NewNullablePtr[discord.Icon](icon),
 	})
 }
 

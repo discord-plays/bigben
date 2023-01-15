@@ -1,6 +1,6 @@
 module github.com/MrMelon54/bigben
 
-go 1.18
+go 1.19
 
 require (
 	github.com/MrMelon54/channel-sorter v0.0.1

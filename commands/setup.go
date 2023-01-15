@@ -7,7 +7,7 @@ import (
 	"github.com/MrMelon54/bigben/utils"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-	"github.com/disgoorg/disgo/json"
+	"github.com/disgoorg/json"
 	"log"
 	"strings"
 	"time"
@@ -27,7 +27,7 @@ func (x *setupCommand) Command() discord.SlashCommandCreate {
 	return discord.SlashCommandCreate{
 		Name:                     "setup",
 		Description:              "Setup the bot",
-		DefaultMemberPermissions: json.NewOptional[discord.Permissions](discord.PermissionManageServer),
+		DefaultMemberPermissions: json.NewNullablePtr[discord.Permissions](discord.PermissionManageServer),
 		Options: []discord.ApplicationCommandOption{
 			discord.ApplicationCommandOptionChannel{
 				Name:        "channel",
