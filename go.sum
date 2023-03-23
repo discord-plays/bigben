@@ -6,8 +6,8 @@ gitee.com/travelliu/dm v1.8.11192/go.mod h1:DHTzyhCrM843x9VdKVbZ+GKXGRbKM2sJ4Lxi
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8Leh48TZaKVeNIfJntJ2wa0=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
-github.com/MrMelon54/channel-sorter v0.0.1 h1:sG70Pf33ILTYqDpTkGWvm2eglclM4Woy8rnPwxV/nng=
-github.com/MrMelon54/channel-sorter v0.0.1/go.mod h1:MX6OcFqsyFUYL2UjHhx6CH/3Jsm+Vki3MjbkH+hmyV0=
+github.com/MrMelon54/channel-sorter v0.0.2 h1:hMzM/0MD2KWhW2QvejnaoEgNkEgzsAzdwnRe/1emRyw=
+github.com/MrMelon54/channel-sorter v0.0.2/go.mod h1:MX6OcFqsyFUYL2UjHhx6CH/3Jsm+Vki3MjbkH+hmyV0=
 github.com/MrMelon54/inactive v0.0.1 h1:6e4Jt5ohA/YzAvY4z8LJf259SNmD/ZlkTwQsQa9wBXY=
 github.com/MrMelon54/inactive v0.0.1/go.mod h1:CMWdZcEOd6UuzghGGxME9SWCfeIs8i6YOhw7vOMkNfM=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=

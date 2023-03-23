@@ -3,7 +3,7 @@ module github.com/MrMelon54/bigben
 go 1.19
 
 require (
-	github.com/MrMelon54/channel-sorter v0.0.1
+	github.com/MrMelon54/channel-sorter v0.0.2
 	github.com/Succo/emoji v0.0.0-20210317211306-39491a0d7ff4
 	github.com/disgoorg/disgo v0.14.1
 	github.com/disgoorg/json v1.0.0

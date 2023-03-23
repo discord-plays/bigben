@@ -42,7 +42,7 @@ func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCr
 	data := event.SlashCommandInteractionData()
 	user := data.User("user")
 	var a userStatsTable
-	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ?", event.GuildID().String(), user.ID.String()).Select("count(timestamp) as a, avg(time_to_sec(timestamp) - time_to_sec(message_timestamp)) as b").Get(&a)
+	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ?", event.GuildID().String(), user.ID.String()).Select("count(speed) as a, avg(speed) as b").Get(&a)
 	if err != nil {
 		log.Printf("[UserStatsCommand] Database error: %s\n", err)
 		return
@@ -55,7 +55,7 @@ func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCr
 					Color: 0xd4af37,
 					Fields: []discord.EmbedField{
 						{Name: "First Bong Count", Value: fmt.Sprint(a.Count)},
-						{Name: "Average Reaction Time", Value: fmt.Sprintf("%.3fs", a.Average)},
+						{Name: "Average Reaction Time", Value: fmt.Sprintf("%.3fms", a.Average)},
 					},
 				},
 			},

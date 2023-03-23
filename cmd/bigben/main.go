@@ -18,6 +18,9 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	if os.Getenv("DEBUG_MODE") == "1" {
+		log.Println("[Main] Activating DEBUG mode")
+	}
 	log.Println("[Main] Loading database")
 	dbEnv := os.Getenv("DB")
 	var engine *xorm.Engine

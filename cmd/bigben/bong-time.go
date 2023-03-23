@@ -106,7 +106,7 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 			Emoji:      utils.RandomEmoji(i.BongEmoji),
 			ClickIds:   []snowflake.ID{},
 			ClickNames: []string{},
-			In:         make(chan ClickInfo),
+			In:         make(chan ClickInfo, 10),
 		}
 		c.guilds[i.GuildId] = y
 		go func() {
