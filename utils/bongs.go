@@ -48,7 +48,7 @@ var staticBongs = []BongOption{
 
 var dynamicBong = []DynamicBongOption{
 	func(now time.Time) BongOption {
-		return BongOption{time.Date(now.Year(), time.April, 1, 0, rand.Intn(60), 0, 0, time.UTC), "Bing"}
+		return BongOption{time.Date(now.Year(), time.April, 1, 0, rand.Intn(30), 0, 0, time.UTC), "Bing"}
 	},
 	func(now time.Time) BongOption {
 		return BongOption{time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, time.UTC), fmt.Sprintf("%d Bong 🎆", now.Year())}
