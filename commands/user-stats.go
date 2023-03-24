@@ -6,7 +6,9 @@ import (
 	"github.com/MrMelon54/bigben/tables"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
 	"log"
+	"time"
 )
 
 var _ CommandHandler = &userStatsCommand{}
@@ -42,22 +44,28 @@ func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCr
 	data := event.SlashCommandInteractionData()
 	user := data.User("user")
 	var a userStatsTable
-	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ?", event.GuildID().String(), user.ID.String()).Select("count(speed) as a, avg(speed) as b").Get(&a)
+	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ? and won = 1", event.GuildID().String(), user.ID.String()).Select("count(speed) as a, avg(speed) as b").Get(&a)
 	if err != nil {
 		log.Printf("[UserStatsCommand] Database error: %s\n", err)
 		return
 	}
 	if ok {
+		avg := time.Duration(int64(a.Average * float64(time.Millisecond))).Round(time.Millisecond)
 		_ = event.CreateMessage(discord.MessageCreate{
 			Embeds: []discord.Embed{
 				{
-					Title: fmt.Sprintf("Stats for %s", user.String()),
+					Title: fmt.Sprintf("Stats for %s", user.Username),
 					Color: 0xd4af37,
 					Fields: []discord.EmbedField{
-						{Name: "First Bong Count", Value: fmt.Sprint(a.Count)},
-						{Name: "Average Reaction Time", Value: fmt.Sprintf("%.3fms", a.Average)},
+						{Name: "User", Value: user.String()},
+						{Name: "Total bong count", Value: fmt.Sprint(a.Count)},
+						{Name: "Average reaction time", Value: avg.String()},
 					},
 				},
+			},
+			AllowedMentions: &discord.AllowedMentions{
+				//Parse: []discord.AllowedMentionType{discord.AllowedMentionTypeUsers},
+				Users: []snowflake.ID{user.ID},
 			},
 		})
 		if err != nil {
