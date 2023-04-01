@@ -19,6 +19,7 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/robfig/cron/v3"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
@@ -50,6 +51,7 @@ type BigBen struct {
 	commands        commands.CommandList
 	commandHandlers map[string]commands.CommandHandler
 	bongLock        *sync.Mutex
+	oldBong         *CurrentBong
 	currentBong     *CurrentBong
 	cron            *cron.Cron
 }
@@ -158,18 +160,18 @@ func (b *BigBen) bingBong() {
 	title := utils.GetBongTitle(now)
 	sTime := now
 	eTime := now.Add(time.Hour * 24)
-	if b.currentBong != nil {
-		b.currentBong.Kill()
+
+	if b.oldBong != nil {
+		b.oldBong.Kill()
 	}
+	b.oldBong = b.currentBong
 	b.currentBong = NewCurrentBong(b.engine, title.S, sTime, eTime)
 	b.currentBong.RandomGuildData(all)
-	wg := &sync.WaitGroup{}
 	for _, i := range all {
 		g := b.currentBong.GuildMapItem(i.GuildId)
-		wg.Add(1)
-		go b.internalSendBongMessage(wg, g, i, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), sTime)
+		g.T = sTime
+		go b.internalSendBongMessage(g, i, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), sTime, title.A)
 	}
-	wg.Wait()
 	b.bongLock.Unlock()
 }
 
@@ -200,6 +202,20 @@ func (b *BigBen) updateMessageData() {
 	}
 	b.bongLock.Lock()
 	for _, i := range all {
+		if b.oldBong != nil {
+			o := b.oldBong.GuildMapItem(i.GuildId)
+			if o == nil {
+				continue
+			}
+			o.Lock.Lock()
+			if o.Dirty {
+				o.Dirty = false
+				go b.internalEditBongMessage(i, o.MessageId, b.currentBong.Text, utils.ConvertToComponentEmoji(o.Emoji), o.ClickNames, o.T)
+				go b.internalBongRoleAssign(i, o.MessageId, o.ClickIds)
+			}
+			o.Lock.Unlock()
+		}
+
 		g := b.currentBong.GuildMapItem(i.GuildId)
 		if g == nil {
 			continue
@@ -207,7 +223,7 @@ func (b *BigBen) updateMessageData() {
 		g.Lock.Lock()
 		if g.Dirty {
 			g.Dirty = false
-			go b.internalEditBongMessage(i, g.MessageId, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), g.ClickNames, b.currentBong.StartTime)
+			go b.internalEditBongMessage(i, g.MessageId, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), g.ClickNames, g.T)
 			go b.internalBongRoleAssign(i, g.MessageId, g.ClickIds)
 		}
 		g.Lock.Unlock()
@@ -262,8 +278,16 @@ func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf tables.GuildSetti
 	})
 }
 
-func (b *BigBen) internalSendBongMessage(wg *sync.WaitGroup, g *GuildCurrentBong, conf tables.GuildSettings, title string, emoji discord.ComponentEmoji, startTime time.Time) {
-	defer wg.Done()
+func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildSettings, title string, emoji discord.ComponentEmoji, startTime time.Time, a bool) {
+	if a {
+		waitMin := time.Minute * time.Duration(rand.Intn(30))
+		startTime = startTime.Add(waitMin)
+		g.T = startTime
+		if os.Getenv("DEBUG_MODE") == "1" {
+			fmt.Printf("[Debug] Delaying %s for %s\n", conf.GuildId, waitMin)
+		}
+		<-time.After(time.Until(startTime))
+	}
 	builder := discord.NewWebhookMessageCreateBuilder()
 	builder.SetEmbeds(b.bongEmbeds(title, startTime))
 	builder.SetContainerComponents(b.bongComponents(emoji, []string{}))
@@ -363,7 +387,12 @@ func (b *BigBen) bongComponents(emoji discord.ComponentEmoji, names []string) di
 func (b *BigBen) ClickBong(event *events.ComponentInteractionCreate) {
 	_ = event.Respond(discord.InteractionResponseTypeDeferredUpdateMessage, nil)
 	b.bongLock.Lock()
+	if b.oldBong != nil {
+		fmt.Println("Sending to old bong")
+		b.oldBong.TriggerClick(event)
+	}
 	if b.currentBong != nil {
+		fmt.Println("Sending to new bong")
 		b.currentBong.TriggerClick(event)
 	}
 	b.bongLock.Unlock()

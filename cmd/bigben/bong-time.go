@@ -32,6 +32,7 @@ type GuildCurrentBong struct {
 	ClickIds   []snowflake.ID
 	ClickNames []string
 	In         chan ClickInfo
+	T          time.Time // custom start time
 }
 
 type ClickInfo struct {
@@ -70,6 +71,9 @@ outer:
 			mt := i.MessageId.Time()
 			ts := ct.Sub(mt)
 			if g.MessageId == i.MessageId {
+				if ct.Before(c.StartTime) || ct.After(c.EndTime) {
+					goto exitClickCheck
+				}
 				for _, j := range g.ClickIds {
 					if j == i.UserId {
 						goto exitClickCheck
