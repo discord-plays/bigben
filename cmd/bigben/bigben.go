@@ -388,11 +388,9 @@ func (b *BigBen) ClickBong(event *events.ComponentInteractionCreate) {
 	_ = event.Respond(discord.InteractionResponseTypeDeferredUpdateMessage, nil)
 	b.bongLock.Lock()
 	if b.oldBong != nil {
-		fmt.Println("Sending to old bong")
 		b.oldBong.TriggerClick(event)
 	}
 	if b.currentBong != nil {
-		fmt.Println("Sending to new bong")
 		b.currentBong.TriggerClick(event)
 	}
 	b.bongLock.Unlock()

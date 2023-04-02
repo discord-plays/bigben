@@ -54,19 +54,15 @@ var dynamicBong = []DynamicBongOption{
 		return BongOption{T: time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, time.UTC), S: fmt.Sprintf("%d Bong 🎆", now.Year())}
 	},
 	func(now time.Time) BongOption {
-		a := now.Year() % 19
-		b := now.Year() / 100
-		c := now.Year() % 100
-		d := b / 4
-		e := b % 4
-		g := (8*b + 13) / 15
-		h := (19*a + b - d - g + 15) % 30
-		j := c / 4
-		k := c % 4
-		m := (a + 11*h) / 319
-		r := (2*e + 2*j - k - h + m + 32) % 7
-		month := (h - m + r + 90) / 25
-		day := (h - m + r + month + 19) % 32
-		return BongOption{T: time.Date(now.Year(), time.Month(month), day, 0, 0, 0, 0, time.UTC), S: "Easter Bong 🐰"}
+		// https://rosettacode.org/wiki/Holidays_related_to_Easter#Go
+		y := now.Year()
+		c := y / 100
+		n := mod(y, 19)
+		i := mod(c-c/4-(c-(c-17)/25)/3+19*n+15, 30)
+		i -= (i / 28) * (1 - (i/28)*(29/(i+1))*((21-n)/11))
+		l := i - mod(y+y/4+i+2-c+c/4, 7)
+		m := 3 + (l+40)/44
+		d := l + 28 - 31*(m/4)
+		return BongOption{T: time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.UTC), S: "Easter Bong 🐰"}
 	},
 }

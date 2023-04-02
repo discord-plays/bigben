@@ -14,3 +14,11 @@ func EqualDate(a, b time.Time) bool {
 	b1, b2, b3 := b.Date()
 	return a1 == b1 && a2 == b2 && a3 == b3
 }
+
+func mod(a, n int) int {
+	r := a % n
+	if r < 0 {
+		return r + n
+	}
+	return r
+}
