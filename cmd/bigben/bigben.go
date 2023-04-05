@@ -159,7 +159,7 @@ func (b *BigBen) bingBong() {
 	now := utils.GetStartOfHourTime()
 	title := utils.GetBongTitle(now)
 	sTime := now
-	eTime := now.Add(time.Hour * 24)
+	eTime := now.Add(time.Hour)
 
 	if b.oldBong != nil {
 		b.oldBong.Kill()
