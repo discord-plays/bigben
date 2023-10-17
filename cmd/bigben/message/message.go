@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-func makeMessageNotification(title, message, thumbnail string, colour, oldYear, newYear int, timestamp time.Time) *discord.MessageCreateBuilder {
+// MakeMessageNotification makes a generic notification with the old year and new year values
+func MakeMessageNotification(title, message, thumbnail string, colour, oldYear, newYear int, timestamp time.Time) *discord.MessageCreateBuilder {
 	tmpl := template.New("description")
 	_, err := tmpl.Parse(message)
 	if err != nil {

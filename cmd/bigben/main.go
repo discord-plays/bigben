@@ -48,7 +48,7 @@ func main() {
 		guildId = 0
 	}
 
-	ben, err := NewBigBen(engine, os.Getenv("TOKEN"), os.Getenv("UPLOAD_TOKEN"), appId, guildId)
+	ben, err := NewBigBen(engine, os.Getenv("TOKEN"), os.Getenv("UPLOAD_TOKEN"), os.Getenv("STATUS_PUSH"), appId, guildId)
 	if err != nil {
 		log.Fatalln(err)
 	}

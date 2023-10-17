@@ -7,6 +7,7 @@ import (
 	"github.com/MrMelon54/bigben/assets"
 	"github.com/MrMelon54/bigben/cmd/bigben/message"
 	"github.com/MrMelon54/bigben/commands"
+	"github.com/MrMelon54/bigben/inter"
 	"github.com/MrMelon54/bigben/tables"
 	"github.com/MrMelon54/bigben/utils"
 	"github.com/disgoorg/disgo"
@@ -20,6 +21,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"log"
 	"math/rand"
+	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -30,6 +33,7 @@ import (
 
 const (
 	bongCron          = "0 0 * * * *"    // @hourly
+	bongStatusUpdate  = "0 * * * * *"    // @minutely
 	bongSetupCron     = "0 50 * * * *"   // @hourly at 50min
 	bongDebugCron     = "0 */2 * * * *"  // every 2min
 	updateMessageCron = "*/2 * * * * *"  // every 2sec
@@ -42,26 +46,31 @@ var intents = []gateway.Intents{
 	gateway.IntentGuildMessages,
 }
 
+// BigBen contains all the commands, config and cron trigger logic
 type BigBen struct {
-	engine          *xorm.Engine
-	appId           snowflake.ID
-	guildId         snowflake.ID
-	client          bot.Client
-	uploadToken     string
-	commands        commands.CommandList
-	commandHandlers map[string]commands.CommandHandler
-	bongLock        *sync.Mutex
-	oldBong         *CurrentBong
-	currentBong     *CurrentBong
-	cron            *cron.Cron
+	engine             *xorm.Engine
+	appId              snowflake.ID
+	guildId            snowflake.ID
+	client             bot.Client
+	uploadToken        string
+	commands           commands.CommandList
+	commandHandlers    map[string]commands.CommandHandler
+	bongLock           *sync.Mutex
+	oldBong            *CurrentBong
+	currentBong        *CurrentBong
+	cron               *cron.Cron
+	statusPushEndpoint string
 }
+
+var _ inter.MainBotInterface = &BigBen{}
 
 func (b *BigBen) Engine() *xorm.Engine  { return b.engine }
 func (b *BigBen) AppId() snowflake.ID   { return b.appId }
 func (b *BigBen) GuildId() snowflake.ID { return b.guildId }
 func (b *BigBen) Session() bot.Client   { return b.client }
 
-func NewBigBen(engine *xorm.Engine, token, uploadToken string, appId, guildId snowflake.ID) (*BigBen, error) {
+// NewBigBen creates a new instance of the BigBen struct
+func NewBigBen(engine *xorm.Engine, token, uploadToken, statusPush string, appId, guildId snowflake.ID) (*BigBen, error) {
 	client, err := disgo.New(token, bot.WithCacheConfigOpts(
 		cache.WithCacheFlags(cache.FlagVoiceStates, cache.FlagMembers, cache.FlagChannels, cache.FlagGuilds, cache.FlagRoles),
 	), bot.WithGatewayConfigOpts(
@@ -83,10 +92,11 @@ func NewBigBen(engine *xorm.Engine, token, uploadToken string, appId, guildId sn
 			presenceUpdate.Status = discord.OnlineStatusOnline
 		})
 	}})
-	return (&BigBen{}).init(engine, appId, guildId, client, uploadToken)
+	return (&BigBen{}).init(engine, appId, guildId, client, uploadToken, statusPush)
 }
 
-func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client bot.Client, uploadToken string) (*BigBen, error) {
+func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client bot.Client, uploadToken, statusPush string) (*BigBen, error) {
+	// fill parameters
 	b.engine = engine
 	b.appId = appId
 	b.guildId = guildId
@@ -95,6 +105,9 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client b
 	b.commands, b.commandHandlers = commands.InitCommands(b)
 	b.bongLock = &sync.Mutex{}
 	b.currentBong = nil
+	b.statusPushEndpoint = statusPush
+
+	// try to update commands and add event listeners
 	err := b.updateCommands()
 	if err != nil {
 		return nil, err
@@ -108,21 +121,38 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client b
 			b.ClickBong(event)
 		}
 	}))
+
+	// setup for the next bong
 	b.bingSetup()
 
-	cronChristmas := b.messageNotification("Christmas", message.SendChristmasNotification)
+	// setup cron library with second support
 	b.cron = cron.New(cron.WithSeconds())
+
+	// debug mode sends a bong every 2 minutes
 	if os.Getenv("DEBUG_MODE") == "1" {
 		_, _ = b.cron.AddFunc(bongDebugCron, b.bingBong)
 	} else {
 		_, _ = b.cron.AddFunc(bongCron, b.bingBong)
 	}
+
+	// setup status push task to call every minute
+	if b.statusPushEndpoint != "" {
+		_, _ = b.cron.AddFunc(bongStatusUpdate, b.statusUpdate)
+	}
+
+	// setup Christmas notifications
+	cronChristmas := b.messageNotification("Christmas", message.SendChristmasNotification)
+
+	// setup update message, bong setup, Christmas and New Year tasks
 	_, _ = b.cron.AddFunc(updateMessageCron, b.updateMessageData)
 	_, _ = b.cron.AddFunc(bongSetupCron, b.bingSetup)
 	_, _ = b.cron.AddFunc(bongChristmasCron, cronChristmas)
 	_, _ = b.cron.AddFunc(bongNewYearCron, b.cronNewYears)
+
+	// start the cron scheduler
 	b.cron.Start()
 
+	// map of debug commands for testing calls
 	commands.DebugCommands = map[string]func(){
 		"bingBong":  b.bingBong,
 		"bingSetup": b.bingSetup,
@@ -132,6 +162,8 @@ func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client b
 	return b, nil
 }
 
+// RunAndBlock connects to the Discord gateway and starts the main bot sequence.
+// This method blocks until sent an interrupt signal.
 func (b *BigBen) RunAndBlock() {
 	if err := b.client.OpenGateway(context.TODO()); err != nil {
 		log.Printf("Failed to connect to gateway: %s", err)
@@ -144,46 +176,86 @@ func (b *BigBen) RunAndBlock() {
 	b.Exit()
 }
 
+// Exit closes the Discord client connection
 func (b *BigBen) Exit() {
 	b.client.Close(context.TODO())
 }
 
+// statusUpdate send a push message to the status endpoint
+func (b *BigBen) statusUpdate() {
+	v := url.Values{
+		"status": []string{"up"},
+		"msg":    []string{"OK"},
+		"ping":   []string{fmt.Sprintf("%d", b.client.Gateway().Latency().Milliseconds())},
+	}
+	get, err := http.Get(b.statusPushEndpoint + "?" + v.Encode())
+	if err != nil {
+		return
+	}
+	_ = get.Body.Close()
+}
+
+// bingBong sends the hourly bong message to all guilds
 func (b *BigBen) bingBong() {
 	log.Println("[bingBong()] Sending hourly bong")
+
+	// read guild settings
 	all, err := b.GetAllGuildSettings()
 	if err != nil {
 		log.Printf("[bingBong()] Error: %s\n", err)
 		return
 	}
-	b.bongLock.Lock()
+
+	// calculate the start and end time
 	now := utils.GetStartOfHourTime()
 	title := utils.GetBongTitle(now)
 	sTime := now
 	eTime := now.Add(time.Hour)
 
+	// generate a new bong with random guild data
+	currentBong := NewCurrentBong(b.engine, title.S, sTime, eTime)
+	currentBong.RandomGuildData(all)
+
+	// lock while generating and swapping to new bong
+	b.bongLock.Lock()
+
+	// kill the old bong if it's still running
 	if b.oldBong != nil {
 		b.oldBong.Kill()
 	}
+
+	// move the current bong to be the old bong
+	b.currentBong = currentBong
 	b.oldBong = b.currentBong
-	b.currentBong = NewCurrentBong(b.engine, title.S, sTime, eTime)
-	b.currentBong.RandomGuildData(all)
-	for _, i := range all {
-		g := b.currentBong.GuildMapItem(i.GuildId)
-		g.T = sTime
-		go b.internalSendBongMessage(g, i, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), sTime, title.A)
-	}
+
+	// finish with the lock
 	b.bongLock.Unlock()
+
+	// send bong message to all guilds
+	for _, i := range all {
+		g := currentBong.GuildMapItem(i.GuildId)
+		g.T = sTime
+		go b.internalSendBongMessage(g, i, currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), sTime, title.A)
+	}
 }
 
+// bingSetup changes the webhook profile picture each hour
 func (b *BigBen) bingSetup() {
+	// load guild settings
 	all, err := b.GetAllGuildSettings()
 	if err != nil {
 		log.Printf("[bingBong()] Error: %s\n", err)
 		return
 	}
+
+	// setup wait group to wait for all actions to finish
 	wg := &sync.WaitGroup{}
+
+	// get the current hour and find the clock face icon
 	n := utils.GetStartOfHourTime().Add(time.Hour)
 	icon := *assets.ReadClockFaceByTimeAsOptionalIcon(n)
+
+	// modify the webhook in each guild
 	for _, i := range all {
 		wg.Add(1)
 		go b.internalSetupWebhook(wg, i, icon)
@@ -191,47 +263,59 @@ func (b *BigBen) bingSetup() {
 	wg.Wait()
 }
 
+// updateMessageData edits messages and the bong role
 func (b *BigBen) updateMessageData() {
+	// don't try and update if currentBong is not initialised yet
 	if b.currentBong == nil {
 		return
 	}
+
+	// load guild settings
 	all, err := b.GetAllGuildSettings()
 	if err != nil {
 		log.Printf("[updateMessageData()] Error: %s\n", err)
 		return
 	}
+
+	// get copies of the old and current bongs
 	b.bongLock.Lock()
+	oldBong := b.oldBong
+	currentBong := b.currentBong
+	b.bongLock.Unlock()
+
+	// loop over all guilds and update bong data for the oldBong and currentBong
 	for _, i := range all {
-		if b.oldBong != nil {
-			o := b.oldBong.GuildMapItem(i.GuildId)
-			if o == nil {
-				continue
-			}
-			o.Lock.Lock()
-			if o.Dirty {
-				o.Dirty = false
-				go b.internalEditBongMessage(i, o.MessageId, b.currentBong.Text, utils.ConvertToComponentEmoji(o.Emoji), o.ClickNames, o.T)
-				go b.internalBongRoleAssign(i, o.MessageId, o.ClickIds)
-			}
-			o.Lock.Unlock()
+		if oldBong != nil {
+			b.updateBongData(i, oldBong)
 		}
 
-		g := b.currentBong.GuildMapItem(i.GuildId)
-		if g == nil {
-			continue
-		}
-		g.Lock.Lock()
-		if g.Dirty {
-			g.Dirty = false
-			go b.internalEditBongMessage(i, g.MessageId, b.currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), g.ClickNames, g.T)
-			go b.internalBongRoleAssign(i, g.MessageId, g.ClickIds)
-		}
-		g.Lock.Unlock()
+		// update current bong data
+		b.updateBongData(i, currentBong)
 	}
-	b.bongLock.Unlock()
 }
 
+func (b *BigBen) updateBongData(i tables.GuildSettings, bong *CurrentBong) {
+	// find the guild in the current bong map
+	g := bong.GuildMapItem(i.GuildId)
+	if g == nil {
+		return
+	}
+
+	// lock while grabbing parameters
+	g.Lock.Lock()
+	if g.Dirty {
+		g.Dirty = false
+
+		// launch edit bong message and bong role assign in goroutines
+		go b.internalEditBongMessage(i, g.MessageId, bong.Text, utils.ConvertToComponentEmoji(g.Emoji), g.ClickNames, g.T)
+		go b.internalBongRoleAssign(i, g.MessageId, g.ClickIds)
+	}
+	g.Lock.Unlock()
+}
+
+// updateCommands sets up the global commands for the bot
 func (b *BigBen) updateCommands() error {
+	// if a guildId is set then the global commands are only updated for that guild
 	if b.guildId == 0 {
 		_, err := b.client.Rest().SetGlobalCommands(b.appId, b.commands)
 		if err != nil {
@@ -246,12 +330,14 @@ func (b *BigBen) updateCommands() error {
 	return nil
 }
 
+// GetAllGuildSettings returns the GuildSettings for each guild
 func (b *BigBen) GetAllGuildSettings() ([]tables.GuildSettings, error) {
 	var g []tables.GuildSettings
 	err := b.engine.Find(&g)
 	return g, err
 }
 
+// GetGuildSettings returns the GuildSettings for the specified guild
 func (b *BigBen) GetGuildSettings(guildId snowflake.ID) (tables.GuildSettings, error) {
 	var g tables.GuildSettings
 	_, err := b.engine.Where("guild_id = ?", guildId.String()).Get(&g)
@@ -259,6 +345,7 @@ func (b *BigBen) GetGuildSettings(guildId snowflake.ID) (tables.GuildSettings, e
 	return g, err
 }
 
+// PutGuildSettings sets the guild settings for the specified guild
 func (b *BigBen) PutGuildSettings(guildSettings tables.GuildSettings) error {
 	ok, err := b.engine.Where("guild_id = ?", guildSettings.GuildId).Update(&guildSettings)
 	if err != nil {
@@ -271,6 +358,7 @@ func (b *BigBen) PutGuildSettings(guildSettings tables.GuildSettings) error {
 	return nil
 }
 
+// internalSetupWebhook updates the avatar for the webhook by ID
 func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf tables.GuildSettings, icon discord.Icon) {
 	defer wg.Done()
 	_, _ = b.client.Rest().UpdateWebhook(conf.BongWebhookId, discord.WebhookUpdate{
@@ -278,6 +366,7 @@ func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf tables.GuildSetti
 	})
 }
 
+// internalSendBongMessage sends a bong message for the specified guild
 func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildSettings, title string, emoji discord.ComponentEmoji, startTime time.Time, a bool) {
 	if a {
 		waitMin := time.Minute * time.Duration(rand.Intn(30))

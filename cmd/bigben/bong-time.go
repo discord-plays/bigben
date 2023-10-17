@@ -115,7 +115,7 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 		c.guilds[i.GuildId] = y
 		go func() {
 			won := true
-			z := channelSorter.Sort[ClickInfo](time.Second*5, y.In, func(a ClickInfo, b ClickInfo) bool {
+			z := channelSorter.Sort[ClickInfo](time.Minute*1, y.In, func(a ClickInfo, b ClickInfo) bool {
 				return a.InterId.Time().Before(b.InterId.Time())
 			})
 		kill:
