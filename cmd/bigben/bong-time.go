@@ -58,6 +58,9 @@ func NewCurrentBong(engine *xorm.Engine, text string, sTime, eTime time.Time) *C
 	return c
 }
 
+// internalLoop handles receiving the incoming clicks
+//
+// TODO(Melon): refactor this
 func (c *CurrentBong) internalLoop() {
 outer:
 	for {
@@ -91,10 +94,13 @@ outer:
 	}
 }
 
+// Kill triggers the done state for this CurrentBong
 func (c *CurrentBong) Kill() {
 	close(c.mDone)
 }
 
+// GuildMapItem locks and fetches the GuildCurrentBong for the specified guild
+// snowflake
 func (c *CurrentBong) GuildMapItem(guildId snowflake.ID) *GuildCurrentBong {
 	c.mapLock.RLock()
 	g := c.guilds[guildId]
@@ -102,6 +108,10 @@ func (c *CurrentBong) GuildMapItem(guildId snowflake.ID) *GuildCurrentBong {
 	return g
 }
 
+// RandomGuildData generates random GuildCurrentBong structs for each guild using
+// the provided settings.
+//
+// TODO(Melon): refactor this
 func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 	c.mapLock.Lock()
 	for _, i := range all {

@@ -367,8 +367,9 @@ func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf tables.GuildSetti
 }
 
 // internalSendBongMessage sends a bong message for the specified guild
-func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildSettings, title string, emoji discord.ComponentEmoji, startTime time.Time, a bool) {
-	if a {
+func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildSettings, title string, emoji discord.ComponentEmoji, startTime time.Time, aprilFools bool) {
+	// wait for a random number of minutes on April fools
+	if aprilFools {
 		waitMin := time.Minute * time.Duration(rand.Intn(30))
 		startTime = startTime.Add(waitMin)
 		g.T = startTime
@@ -377,32 +378,44 @@ func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildS
 		}
 		<-time.After(time.Until(startTime))
 	}
+
+	// build webhook message
 	builder := discord.NewWebhookMessageCreateBuilder()
 	builder.SetEmbeds(b.bongEmbeds(title, startTime))
 	builder.SetContainerComponents(b.bongComponents(emoji, []string{}))
+
+	// send webhook message
 	m, err := b.client.Rest().CreateWebhookMessage(conf.BongWebhookId, conf.BongWebhookToken, builder.Build(), true, 0)
 	if err != nil {
 		log.Printf("[internalSendBongMessage(\"%s/%s\")] Error: %s\n", conf.GuildId, conf.BongChannelId, err)
 		return
 	}
+
+	// lock and update message ID
 	g.Lock.Lock()
 	g.MessageId = m.ID
 	g.Lock.Unlock()
 }
 
+// internalEditBongMessage changes the contents of the bong message
 func (b *BigBen) internalEditBongMessage(conf tables.GuildSettings, messageId snowflake.ID, title string, emoji discord.ComponentEmoji, names []string, startTime time.Time) {
 	if messageId == 0 {
 		return
 	}
+
+	// build webhook message updater
 	builder := discord.NewWebhookMessageUpdateBuilder()
 	builder.SetEmbeds(b.bongEmbeds(title, startTime))
 	builder.SetContainerComponents(b.bongComponents(emoji, names))
+
+	// update webhook message
 	_, err := b.client.Rest().UpdateWebhookMessage(conf.BongWebhookId, conf.BongWebhookToken, messageId, builder.Build(), 0)
 	if err != nil {
 		log.Printf("[internalEditBongMessage(\"%s/%s\")] Error: %s\n", conf.GuildId, conf.BongChannelId, err)
 	}
 }
 
+// internalBongRoleAssign removes the bong role from the members who currently have it and adds the bong role to the winning member
 func (b *BigBen) internalBongRoleAssign(conf tables.GuildSettings, messageId snowflake.ID, clickIds []snowflake.ID) {
 	if conf.BongRoleId == 0 {
 		return
@@ -410,15 +423,20 @@ func (b *BigBen) internalBongRoleAssign(conf tables.GuildSettings, messageId sno
 	if len(clickIds) < 1 {
 		return
 	}
-	var a []tables.RoleLog
-	err := b.engine.Where("guild_id = ? and message_id != ?", conf.GuildId, messageId).Find(&a)
+
+	// load role logs
+	var roleLogs []tables.RoleLog
+	err := b.engine.Where("guild_id = ? and message_id != ?", conf.GuildId, messageId).Find(&roleLogs)
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (get role log row): %s\n", err)
 		return
 	}
-	c := make([]int64, len(a))
-	for i, row := range a {
+
+	// remove bong role from all members except the winning member
+	c := make([]int64, len(roleLogs))
+	for i, row := range roleLogs {
 		c[i] = row.Id
+		// if the UserId is the winning member then continue and do not remove the bong role
 		if row.UserId == clickIds[0] {
 			continue
 		}
@@ -427,6 +445,8 @@ func (b *BigBen) internalBongRoleAssign(conf tables.GuildSettings, messageId sno
 			log.Printf("[internalBongRoleAssign()] Failed to remove guild member role: %s\n", err)
 		}
 	}
+
+	// delete all the rows from the previously fetched role log
 	_, err = b.engine.In("id", c).Delete(&tables.RoleLog{})
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (delete checked ids): %s\n", err)
@@ -442,39 +462,56 @@ func (b *BigBen) internalBongRoleAssign(conf tables.GuildSettings, messageId sno
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (insert role log row): %s\n", err)
 	}
+
+	// add the role to the winning member
 	err = b.client.Rest().AddMemberRole(conf.GuildId, clickIds[0], conf.BongRoleId)
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Failed to add guild member: %s\n", err)
 	}
 }
 
+// bongEmbeds returns the Discord embed with the title and timestamp
 func (b *BigBen) bongEmbeds(title string, t time.Time) discord.Embed {
 	return discord.Embed{Title: title, Color: 0xd4af37, Timestamp: &t}
 }
 
+// bongComponents returns the button components below the bong message
 func (b *BigBen) bongComponents(emoji discord.ComponentEmoji, names []string) discord.ContainerComponent {
+	// limit to displaying the top 3 members
 	if len(names) > 3 {
 		names = names[:3]
 	}
+	// format click/clicks text
 	l := ""
 	if len(names) == 1 {
 		l = "1 click"
 	} else if len(names) > 1 {
 		l = fmt.Sprintf("%d clicks", len(names))
 	}
-	a := []discord.InteractiveComponent{discord.NewSecondaryButton(l, "bong").WithEmoji(emoji)}
+
+	// setup interactive component slice with bong button
+	rowButtons := []discord.InteractiveComponent{discord.NewSecondaryButton(l, "bong").WithEmoji(emoji)}
+
+	// loop over winning names and add them in disabled buttons
+	// the 0th button has a "success" style applied to it
 	for i, j := range names {
 		style := discord.ButtonStyleSecondary
 		if i == 0 {
 			style = discord.ButtonStyleSuccess
 		}
-		a = append(a, discord.NewButton(discord.ButtonStyle(style), j, fmt.Sprintf("none-%d", i), "").AsDisabled())
+		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyle(style), j, fmt.Sprintf("none-%d", i), "").AsDisabled())
 	}
-	return discord.NewActionRow(a...)
+
+	// return the buttons in an action row
+	return discord.NewActionRow(rowButtons...)
 }
 
+// ClickBong is triggered on interaction events
 func (b *BigBen) ClickBong(event *events.ComponentInteractionCreate) {
+	// respond with a deferred update to render the interaction as finished
 	_ = event.Respond(discord.InteractionResponseTypeDeferredUpdateMessage, nil)
+
+	// lock and trigger the old and current bongs
 	b.bongLock.Lock()
 	if b.oldBong != nil {
 		b.oldBong.TriggerClick(event)
