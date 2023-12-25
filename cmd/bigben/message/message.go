@@ -26,7 +26,7 @@ func MakeMessageNotification(title, message, thumbnail string, colour, oldYear, 
 
 	embed := discord.NewEmbedBuilder()
 	embed.SetTitle(title)
-	embed.SetAuthor("Melon", "https://mrmelon54.com", "https://cdn.discordapp.com/avatars/222344019458392065/634a1f1256880daba803abb9330b76f4.png?size=256")
+	embed.SetAuthor("Melon", "https://mrmelon54.com", "https://cdn.discordapp.com/avatars/222344019458392065/ddc5b5cb27f8b0d1df7521b192940427.png?size=256")
 	embed.SetDescriptionf(b.String())
 	embed.SetColor(colour)
 	embed.SetTimestamp(timestamp)
