@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/MrMelon54/bigben/tables"
-	"github.com/MrMelon54/bigben/utils"
 	channelSorter "github.com/MrMelon54/channel-sorter"
+	"github.com/discord-plays/bigben/tables"
+	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 	"log"

@@ -2,9 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"github.com/MrMelon54/bigben/assets"
-	"github.com/MrMelon54/bigben/inter"
-	"github.com/MrMelon54/bigben/utils"
+	"github.com/discord-plays/bigben/assets"
+	"github.com/discord-plays/bigben/inter"
+	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/json"

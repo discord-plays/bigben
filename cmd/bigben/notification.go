@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/MrMelon54/bigben/tables"
+	"github.com/discord-plays/bigben/tables"
 	"github.com/disgoorg/disgo/bot"
 	"log"
 	"sync"

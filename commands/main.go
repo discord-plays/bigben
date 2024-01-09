@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/MrMelon54/bigben/inter"
+	"github.com/discord-plays/bigben/inter"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"os"

@@ -1,4 +1,4 @@
-module github.com/MrMelon54/bigben
+module github.com/discord-plays/bigben
 
 go 1.19
 

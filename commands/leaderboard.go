@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/MrMelon54/bigben/inter"
-	"github.com/MrMelon54/bigben/tables"
+	"github.com/discord-plays/bigben/inter"
+	"github.com/discord-plays/bigben/tables"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
