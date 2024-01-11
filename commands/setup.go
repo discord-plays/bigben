@@ -27,7 +27,7 @@ func (x *setupCommand) Command() discord.SlashCommandCreate {
 	return discord.SlashCommandCreate{
 		Name:                     "setup",
 		Description:              "Setup the bot",
-		DefaultMemberPermissions: json.NewNullablePtr[discord.Permissions](discord.PermissionManageServer),
+		DefaultMemberPermissions: json.NewNullablePtr[discord.Permissions](discord.PermissionManageGuild),
 		Options: []discord.ApplicationCommandOption{
 			discord.ApplicationCommandOptionChannel{
 				Name:        "channel",
