@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/discord-plays/bigben/tables"
 	"github.com/disgoorg/snowflake/v2"
 	_ "github.com/go-sql-driver/mysql"
@@ -34,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to load database (\"%s\"): %s\n", dbEnv, err)
 	}
-	err = engine.Sync(&tables.BongLog{}, &tables.GuildSettings{}, &tables.RoleLog{}, &tables.UserLog{})
+	err = engine.Sync(&tables.BongLog{}, &tables.GuildSettings{}, &tables.LeaderboardUploads{}, &tables.RoleLog{}, &tables.UserLog{})
 	if err != nil {
 		log.Fatalf("Unable to sync database: %s\n", err)
 	}
@@ -52,5 +53,27 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	ensureBackupsAreUploaded(ben)
 	ben.RunAndBlock()
+}
+
+func ensureBackupsAreUploaded(ben *BigBen) {
+	toUploadYears := make([]int, 0)
+	err := ben.engine.Iterate(&tables.LeaderboardUploads{}, func(idx int, bean interface{}) error {
+		row, ok := bean.(*tables.LeaderboardUploads)
+		if !ok {
+			return fmt.Errorf("failed to convert to iterating type")
+		}
+		if !*row.Sent {
+			toUploadYears = append(toUploadYears, row.Year)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Printf("[ensureBackupsAreUploaded()] Failed to iterate over leaderboard years: %s\n", err)
+		return
+	}
+	for _, i := range toUploadYears {
+		generateAndUploadBackup(ben.engine, i, ben.uploadToken)
+	}
 }

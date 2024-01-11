@@ -72,7 +72,7 @@ func (b *BigBen) Session() bot.Client   { return b.client }
 // NewBigBen creates a new instance of the BigBen struct
 func NewBigBen(engine *xorm.Engine, token, uploadToken, statusPush string, appId, guildId snowflake.ID) (*BigBen, error) {
 	client, err := disgo.New(token, bot.WithCacheConfigOpts(
-		cache.WithCacheFlags(cache.FlagVoiceStates, cache.FlagMembers, cache.FlagChannels, cache.FlagGuilds, cache.FlagRoles),
+		cache.WithCaches(cache.FlagVoiceStates, cache.FlagMembers, cache.FlagChannels, cache.FlagGuilds, cache.FlagRoles),
 	), bot.WithGatewayConfigOpts(
 		gateway.WithIntents(intents...),
 		gateway.WithCompress(true),

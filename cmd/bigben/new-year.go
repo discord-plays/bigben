@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"github.com/discord-plays/bigben/cmd/bigben/message"
 	"github.com/discord-plays/bigben/tables"
+	"github.com/disgoorg/snowflake/v2"
 	"github.com/mohae/struct2csv"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 	"xorm.io/xorm"
@@ -21,38 +23,65 @@ import (
 func (b *BigBen) cronNewYears() {
 	b.messageNotification("New Year's", message.SendNewYearNotification)()
 	if b.uploadToken != "" {
-		archive, err := prepareApiUpload(b.engine)
-		if err != nil {
-			log.Printf("[cronNewYears()] Failed to generate archive: %s\n", err)
-			return
-		}
-		resp, err := makeApiUploadRequest(archive, b.uploadToken)
-		if err != nil {
-			log.Printf("[cronNewYears()] Failed to upload archive: %s\n", err)
-			return
-		}
-		log.Printf(">>> Archive URL: https://cdn.mrmelon54.com/download/auto/%s <<<\n", resp["Path"])
+		// auto upload the previous year
+		generateAndUploadBackup(b.engine, time.Now().Year()-1, b.uploadToken)
 	}
 }
 
-func prepareApiUpload(engine *xorm.Engine) (*bytes.Buffer, error) {
+func generateAndUploadBackup(engine *xorm.Engine, year int, uploadToken string) {
+	_, err := engine.Insert(tables.LeaderboardUploads{Year: year})
+	if err != nil {
+		log.Printf("[generateAndUploadBackup(%d)] Failed to save: %s\n", year, err)
+		return
+	}
+	archive, err := prepareApiUpload(engine, year)
+	if err != nil {
+		log.Printf("[generateAndUploadBackup(%d)] Failed to generate archive: %s\n", year, err)
+		return
+	}
+	create, err := os.Create(fmt.Sprintf("backup-leaderboard-%d.tar.gz", year))
+	if err != nil {
+		log.Printf("[generateAndUploadBackup(%d)] Failed to create leaderboard backup file: %s\n", year, err)
+		return
+	}
+	defer create.Close()
+	_, err = create.Write(archive.Bytes())
+	if err != nil {
+		log.Printf("[generateAndUploadBackup(%d)] Failed to write leaderboard backup file: %s\n", year, err)
+		return
+	}
+	resp, err := makeApiUploadRequest(archive, uploadToken)
+	if err != nil {
+		log.Printf("[generateAndUploadBackup(%d)] Failed to upload archive: %s\n", year, err)
+		return
+	}
+	log.Printf(">>> Archive URL %d: https://cdn.mrmelon54.com/download/auto/%s <<<\n", year, resp["Path"])
+	sentBool := true
+	_, err = engine.Update(tables.LeaderboardUploads{Year: year, Sent: &sentBool})
+	if err != nil {
+		log.Printf("[generateAndUploadBackup(%d)] Failed to update sent column in database: %s\n", year, err)
+		return
+	}
+}
+
+func prepareApiUpload(engine *xorm.Engine, year int) (*bytes.Buffer, error) {
 	archive := new(bytes.Buffer)
 	gz := gzip.NewWriter(archive)
 	tarGz := tar.NewWriter(gz)
 
-	err := writeCsvFile[tables.BongLog](tarGz, "bong-log.csv", &tables.BongLog{}, engine)
+	err := writeCsvFile[tables.BongLog](tarGz, year, "bong-log.csv", &tables.BongLog{}, engine)
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(BongLog): %w", err)
 	}
-	err = writeCsvFile[tables.GuildSettings](tarGz, "guild-settings.csv", &tables.GuildSettings{}, engine)
+	err = writeCsvFile[tables.GuildSettings](tarGz, year, "guild-settings.csv", &tables.GuildSettings{}, engine)
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(GuildSettings): %w", err)
 	}
-	err = writeCsvFile[tables.RoleLog](tarGz, "role-log.csv", &tables.RoleLog{}, engine)
+	err = writeCsvFile[tables.RoleLog](tarGz, year, "role-log.csv", &tables.RoleLog{}, engine)
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(RoleLog): %w", err)
 	}
-	err = writeCsvFile[tables.UserLog](tarGz, "user-log.csv", &tables.UserLog{}, engine)
+	err = writeCsvFile[tables.UserLog](tarGz, year, "user-log.csv", &tables.UserLog{}, engine)
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(UserLog): %w", err)
 	}
@@ -68,8 +97,12 @@ func prepareApiUpload(engine *xorm.Engine) (*bytes.Buffer, error) {
 	return archive, nil
 }
 
-func writeCsvFile[T any](tarGz *tar.Writer, name string, t *T, engine *xorm.Engine) error {
+func writeCsvFile[T any](tarGz *tar.Writer, year int, name string, t *T, engine *xorm.Engine) error {
 	now := time.Now()
+	startYear := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+	endYear := time.Date(year+1, time.January, 1, 0, 0, 0, 0, time.UTC)
+	startFlake := snowflake.New(startYear)
+	endFlake := snowflake.New(endYear)
 
 	csvBongLog := new(bytes.Buffer)
 	csvWriter := struct2csv.NewWriter(csvBongLog)
@@ -77,7 +110,7 @@ func writeCsvFile[T any](tarGz *tar.Writer, name string, t *T, engine *xorm.Engi
 	if err != nil {
 		return fmt.Errorf("csvWriter.WriteColNames(): %w", err)
 	}
-	err = engine.Iterate(t, func(idx int, bean interface{}) error {
+	err = engine.Where("msg_id >= ? and msg_id < ?", startFlake, endFlake).Iterate(t, func(idx int, bean interface{}) error {
 		if t2, ok := bean.(*T); ok {
 			return csvWriter.WriteStruct(*t2)
 		}
