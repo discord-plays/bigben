@@ -29,13 +29,13 @@ func (b *BigBen) cronNewYears() {
 }
 
 func generateAndUploadBackup(engine *xorm.Engine, year int, uploadToken string) {
-	exist, err := engine.Exist(&tables.LeaderboardUploads{Year: year})
+	exist, err := engine.Exist(tables.LeaderboardUploads{Year: year})
 	if err != nil {
 		log.Printf("[generateAndUploadBackup(%d)] Failed to check if year has been added to list: %s\n", year, err)
 		return
 	}
 	if !exist {
-		_, err := engine.Insert(&tables.LeaderboardUploads{Year: year})
+		_, err := engine.Insert(tables.LeaderboardUploads{Year: year})
 		if err != nil {
 			log.Printf("[generateAndUploadBackup(%d)] Failed to add year to uploads list: %s\n", year, err)
 			return
@@ -64,7 +64,7 @@ func generateAndUploadBackup(engine *xorm.Engine, year int, uploadToken string) 
 	}
 	log.Printf(">>> Archive URL %d: https://cdn.mrmelon54.com/download/auto/%s <<<\n", year, resp["Path"])
 	sentBool := true
-	_, err = engine.Update(&tables.LeaderboardUploads{Year: year, Sent: &sentBool})
+	_, err = engine.Update(tables.LeaderboardUploads{Year: year, Sent: &sentBool})
 	if err != nil {
 		log.Printf("[generateAndUploadBackup(%d)] Failed to update sent column in database: %s\n", year, err)
 		return
@@ -76,19 +76,19 @@ func prepareApiUpload(engine *xorm.Engine, year int) (*bytes.Buffer, error) {
 	gz := gzip.NewWriter(archive)
 	tarGz := tar.NewWriter(gz)
 
-	err := writeCsvFile[tables.BongLog](tarGz, year, "bong-log.csv", &tables.BongLog{}, engine)
+	err := writeCsvFile[tables.BongLog](tarGz, year, "bong-log.csv", &tables.BongLog{}, engine, "msg_id")
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(BongLog): %w", err)
 	}
-	err = writeCsvFile[tables.GuildSettings](tarGz, year, "guild-settings.csv", &tables.GuildSettings{}, engine)
+	err = writeCsvFile[tables.GuildSettings](tarGz, year, "guild-settings.csv", &tables.GuildSettings{}, engine, "")
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(GuildSettings): %w", err)
 	}
-	err = writeCsvFile[tables.RoleLog](tarGz, year, "role-log.csv", &tables.RoleLog{}, engine)
+	err = writeCsvFile[tables.RoleLog](tarGz, year, "role-log.csv", &tables.RoleLog{}, engine, "message_id")
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(RoleLog): %w", err)
 	}
-	err = writeCsvFile[tables.UserLog](tarGz, year, "user-log.csv", &tables.UserLog{}, engine)
+	err = writeCsvFile[tables.UserLog](tarGz, year, "user-log.csv", &tables.UserLog{}, engine, "")
 	if err != nil {
 		return nil, fmt.Errorf("writeCsvFile(UserLog): %w", err)
 	}
@@ -104,12 +104,17 @@ func prepareApiUpload(engine *xorm.Engine, year int) (*bytes.Buffer, error) {
 	return archive, nil
 }
 
-func writeCsvFile[T any](tarGz *tar.Writer, year int, name string, t *T, engine *xorm.Engine) error {
+func writeCsvFile[T any](tarGz *tar.Writer, year int, name string, t *T, engine *xorm.Engine, snowflakeTimeFilter string) error {
 	now := time.Now()
-	startYear := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
-	endYear := time.Date(year+1, time.January, 1, 0, 0, 0, 0, time.UTC)
-	startFlake := snowflake.New(startYear)
-	endFlake := snowflake.New(endYear)
+
+	filteredSession := engine.NewSession()
+	if snowflakeTimeFilter != "" {
+		startYear := time.Date(year, time.January, 1, 0, 0, 0, 0, time.UTC)
+		endYear := time.Date(year+1, time.January, 1, 0, 0, 0, 0, time.UTC)
+		startFlake := snowflake.New(startYear)
+		endFlake := snowflake.New(endYear)
+		filteredSession = filteredSession.Where(fmt.Sprintf("%s >= ? and %s < ?", snowflakeTimeFilter, snowflakeTimeFilter), startFlake, endFlake)
+	}
 
 	csvBongLog := new(bytes.Buffer)
 	csvWriter := struct2csv.NewWriter(csvBongLog)
@@ -117,7 +122,7 @@ func writeCsvFile[T any](tarGz *tar.Writer, year int, name string, t *T, engine 
 	if err != nil {
 		return fmt.Errorf("csvWriter.WriteColNames(): %w", err)
 	}
-	err = engine.Where("msg_id >= ? and msg_id < ?", startFlake, endFlake).Iterate(t, func(idx int, bean interface{}) error {
+	err = filteredSession.Iterate(t, func(idx int, bean interface{}) error {
 		if t2, ok := bean.(*T); ok {
 			return csvWriter.WriteStruct(*t2)
 		}
