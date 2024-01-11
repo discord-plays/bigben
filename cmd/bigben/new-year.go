@@ -29,13 +29,13 @@ func (b *BigBen) cronNewYears() {
 }
 
 func generateAndUploadBackup(engine *xorm.Engine, year int, uploadToken string) {
-	exist, err := engine.Exist(tables.LeaderboardUploads{Year: year})
+	exist, err := engine.Exist(&tables.LeaderboardUploads{Year: year})
 	if err != nil {
 		log.Printf("[generateAndUploadBackup(%d)] Failed to check if year has been added to list: %s\n", year, err)
 		return
 	}
 	if !exist {
-		_, err := engine.Insert(tables.LeaderboardUploads{Year: year})
+		_, err := engine.Insert(&tables.LeaderboardUploads{Year: year})
 		if err != nil {
 			log.Printf("[generateAndUploadBackup(%d)] Failed to add year to uploads list: %s\n", year, err)
 			return
@@ -64,7 +64,7 @@ func generateAndUploadBackup(engine *xorm.Engine, year int, uploadToken string) 
 	}
 	log.Printf(">>> Archive URL %d: https://cdn.mrmelon54.com/download/auto/%s <<<\n", year, resp["Path"])
 	sentBool := true
-	_, err = engine.Update(tables.LeaderboardUploads{Year: year, Sent: &sentBool})
+	_, err = engine.Update(&tables.LeaderboardUploads{Year: year, Sent: &sentBool})
 	if err != nil {
 		log.Printf("[generateAndUploadBackup(%d)] Failed to update sent column in database: %s\n", year, err)
 		return
