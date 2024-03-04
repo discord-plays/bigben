@@ -1,36 +1,35 @@
-CREATE TABLE bong_log
+CREATE TABLE bongs
 (
-    id             INTEGER UNIQUE PRIMARY KEY AUTO_INCREMENT,
-    guild_id       INTEGER UNSIGNED NOT NULL,
-    user_id        INTEGER UNSIGNED NOT NULL,
-    message_id     INTEGER UNSIGNED NOT NULL,
-    interaction_id INTEGER UNSIGNED NOT NULL,
-    won            BOOLEAN          NOT NULL,
-    speed          INTEGER          NOT NULL
+    id             BIGINT UNIQUE PRIMARY KEY AUTO_INCREMENT,
+    guild_id       BIGINT UNSIGNED NOT NULL,
+    user_id        BIGINT UNSIGNED NOT NULL,
+    message_id     BIGINT UNSIGNED NOT NULL,
+    interaction_id BIGINT UNSIGNED NOT NULL,
+    won            BOOLEAN         NOT NULL,
+    speed          INTEGER         NOT NULL
 );
 
-CREATE TABLE guild_settings
+CREATE TABLE guilds
 (
-    id                 INTEGER UNIQUE PRIMARY KEY AUTO_INCREMENT,
-    guild_id           INTEGER UNSIGNED NOT NULL,
-    bong_channel_id    INTEGER UNSIGNED NOT NULL,
-    bong_webhook_id    INTEGER UNSIGNED NOT NULL,
-    bong_webhook_token TEXT             NOT NULL,
-    bong_role_id       INTEGER UNSIGNED NOT NULL,
-    bong_emoji         TEXT             NOT NULL
+    id                 BIGINT UNSIGNED UNIQUE PRIMARY KEY,
+    bong_channel_id    BIGINT UNSIGNED NOT NULL,
+    bong_webhook_id    BIGINT UNSIGNED NOT NULL,
+    bong_webhook_token TEXT            NOT NULL,
+    bong_role_id       BIGINT UNSIGNED NOT NULL,
+    bong_emoji         TEXT            NOT NULL
 );
 
-CREATE TABLE role_log
+CREATE TABLE roles
 (
-    id         INTEGER UNIQUE PRIMARY KEY AUTO_INCREMENT,
-    guild_id   INTEGER UNSIGNED NOT NULL,
-    message_id INTEGER UNSIGNED NOT NULL,
-    role_id    INTEGER UNSIGNED NOT NULL,
-    user_id    INTEGER UNSIGNED NOT NULL
+    id         BIGINT UNIQUE PRIMARY KEY AUTO_INCREMENT,
+    guild_id   BIGINT UNSIGNED NOT NULL,
+    message_id BIGINT UNSIGNED NOT NULL,
+    role_id    BIGINT UNSIGNED NOT NULL,
+    user_id    BIGINT UNSIGNED NOT NULL
 );
 
-CREATE TABLE user_log
+CREATE TABLE users
 (
-    id  INTEGER UNSIGNED UNIQUE PRIMARY KEY,
+    id  BIGINT UNSIGNED UNIQUE PRIMARY KEY,
     tag TEXT NOT NULL
 );

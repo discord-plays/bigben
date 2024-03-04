@@ -1,14 +1,14 @@
-package main
+package bigben
 
 import (
 	"context"
 	_ "embed"
 	"fmt"
 	"github.com/discord-plays/bigben/assets"
-	"github.com/discord-plays/bigben/cmd/bigben/message"
 	"github.com/discord-plays/bigben/commands"
+	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/inter"
-	"github.com/discord-plays/bigben/tables"
+	"github.com/discord-plays/bigben/message"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
@@ -28,7 +28,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"xorm.io/xorm"
 )
 
 const (
@@ -48,7 +47,7 @@ var intents = []gateway.Intents{
 
 // BigBen contains all the commands, config and cron trigger logic
 type BigBen struct {
-	engine             *xorm.Engine
+	engine             *database.Queries
 	appId              snowflake.ID
 	guildId            snowflake.ID
 	client             bot.Client
@@ -64,13 +63,13 @@ type BigBen struct {
 
 var _ inter.MainBotInterface = &BigBen{}
 
-func (b *BigBen) Engine() *xorm.Engine  { return b.engine }
-func (b *BigBen) AppId() snowflake.ID   { return b.appId }
-func (b *BigBen) GuildId() snowflake.ID { return b.guildId }
-func (b *BigBen) Session() bot.Client   { return b.client }
+func (b *BigBen) Engine() *database.Queries { return b.engine }
+func (b *BigBen) AppId() snowflake.ID       { return b.appId }
+func (b *BigBen) GuildId() snowflake.ID     { return b.guildId }
+func (b *BigBen) Session() bot.Client       { return b.client }
 
 // NewBigBen creates a new instance of the BigBen struct
-func NewBigBen(engine *xorm.Engine, token, uploadToken, statusPush string, appId, guildId snowflake.ID) (*BigBen, error) {
+func NewBigBen(engine *database.Queries, token, uploadToken, statusPush string, appId, guildId snowflake.ID) (*BigBen, error) {
 	client, err := disgo.New(token, bot.WithCacheConfigOpts(
 		cache.WithCaches(cache.FlagVoiceStates, cache.FlagMembers, cache.FlagChannels, cache.FlagGuilds, cache.FlagRoles),
 	), bot.WithGatewayConfigOpts(
@@ -95,7 +94,7 @@ func NewBigBen(engine *xorm.Engine, token, uploadToken, statusPush string, appId
 	return (&BigBen{}).init(engine, appId, guildId, client, uploadToken, statusPush)
 }
 
-func (b *BigBen) init(engine *xorm.Engine, appId, guildId snowflake.ID, client bot.Client, uploadToken, statusPush string) (*BigBen, error) {
+func (b *BigBen) init(engine *database.Queries, appId, guildId snowflake.ID, client bot.Client, uploadToken, statusPush string) (*BigBen, error) {
 	// fill parameters
 	b.engine = engine
 	b.appId = appId
@@ -200,7 +199,7 @@ func (b *BigBen) bingBong() {
 	log.Println("[bingBong()] Sending hourly bong")
 
 	// read guild settings
-	all, err := b.GetAllGuildSettings()
+	all, err := b.engine.GetAllGuilds(context.Background())
 	if err != nil {
 		log.Printf("[bingBong()] Error: %s\n", err)
 		return
@@ -233,7 +232,7 @@ func (b *BigBen) bingBong() {
 
 	// send bong message to all guilds
 	for _, i := range all {
-		g := currentBong.GuildMapItem(i.GuildId)
+		g := currentBong.GuildMapItem(i.ID)
 		g.T = sTime
 		go b.internalSendBongMessage(g, i, currentBong.Text, utils.ConvertToComponentEmoji(g.Emoji), sTime, title.A)
 	}
@@ -242,7 +241,7 @@ func (b *BigBen) bingBong() {
 // bingSetup changes the webhook profile picture each hour
 func (b *BigBen) bingSetup() {
 	// load guild settings
-	all, err := b.GetAllGuildSettings()
+	all, err := b.engine.GetAllGuilds(context.Background())
 	if err != nil {
 		log.Printf("[bingBong()] Error: %s\n", err)
 		return
@@ -271,7 +270,7 @@ func (b *BigBen) updateMessageData() {
 	}
 
 	// load guild settings
-	all, err := b.GetAllGuildSettings()
+	all, err := b.engine.GetAllGuilds(context.Background())
 	if err != nil {
 		log.Printf("[updateMessageData()] Error: %s\n", err)
 		return
@@ -294,9 +293,9 @@ func (b *BigBen) updateMessageData() {
 	}
 }
 
-func (b *BigBen) updateBongData(i tables.GuildSettings, bong *CurrentBong) {
+func (b *BigBen) updateBongData(i database.Guild, bong *CurrentBong) {
 	// find the guild in the current bong map
-	g := bong.GuildMapItem(i.GuildId)
+	g := bong.GuildMapItem(i.ID)
 	if g == nil {
 		return
 	}
@@ -330,51 +329,23 @@ func (b *BigBen) updateCommands() error {
 	return nil
 }
 
-// GetAllGuildSettings returns the GuildSettings for each guild
-func (b *BigBen) GetAllGuildSettings() ([]tables.GuildSettings, error) {
-	var g []tables.GuildSettings
-	err := b.engine.Find(&g)
-	return g, err
-}
-
-// GetGuildSettings returns the GuildSettings for the specified guild
-func (b *BigBen) GetGuildSettings(guildId snowflake.ID) (tables.GuildSettings, error) {
-	var g tables.GuildSettings
-	_, err := b.engine.Where("guild_id = ?", guildId.String()).Get(&g)
-	g.GuildId = guildId
-	return g, err
-}
-
-// PutGuildSettings sets the guild settings for the specified guild
-func (b *BigBen) PutGuildSettings(guildSettings tables.GuildSettings) error {
-	ok, err := b.engine.Where("guild_id = ?", guildSettings.GuildId).Update(&guildSettings)
-	if err != nil {
-		return err
-	}
-	if ok == 0 {
-		_, err = b.engine.Insert(&guildSettings)
-		return err
-	}
-	return nil
-}
-
 // internalSetupWebhook updates the avatar for the webhook by ID
-func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf tables.GuildSettings, icon discord.Icon) {
+func (b *BigBen) internalSetupWebhook(wg *sync.WaitGroup, conf database.Guild, icon discord.Icon) {
 	defer wg.Done()
-	_, _ = b.client.Rest().UpdateWebhook(conf.BongWebhookId, discord.WebhookUpdate{
+	_, _ = b.client.Rest().UpdateWebhook(conf.BongWebhookID, discord.WebhookUpdate{
 		Avatar: json.NewNullablePtr[discord.Icon](icon),
 	})
 }
 
 // internalSendBongMessage sends a bong message for the specified guild
-func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildSettings, title string, emoji discord.ComponentEmoji, startTime time.Time, aprilFools bool) {
+func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf database.Guild, title string, emoji discord.ComponentEmoji, startTime time.Time, aprilFools bool) {
 	// wait for a random number of minutes on April fools
 	if aprilFools {
 		waitMin := time.Minute * time.Duration(rand.Intn(30))
 		startTime = startTime.Add(waitMin)
 		g.T = startTime
 		if os.Getenv("DEBUG_MODE") == "1" {
-			fmt.Printf("[Debug] Delaying %s for %s\n", conf.GuildId, waitMin)
+			fmt.Printf("[Debug] Delaying %s for %s\n", conf.ID, waitMin)
 		}
 		<-time.After(time.Until(startTime))
 	}
@@ -385,9 +356,9 @@ func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildS
 	builder.SetContainerComponents(b.bongComponents(emoji, []string{}))
 
 	// send webhook message
-	m, err := b.client.Rest().CreateWebhookMessage(conf.BongWebhookId, conf.BongWebhookToken, builder.Build(), true, 0)
+	m, err := b.client.Rest().CreateWebhookMessage(conf.BongWebhookID, conf.BongWebhookToken, builder.Build(), true, 0)
 	if err != nil {
-		log.Printf("[internalSendBongMessage(\"%s/%s\")] Error: %s\n", conf.GuildId, conf.BongChannelId, err)
+		log.Printf("[internalSendBongMessage(\"%s/%s\")] Error: %s\n", conf.ID, conf.BongChannelID, err)
 		return
 	}
 
@@ -398,7 +369,7 @@ func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf tables.GuildS
 }
 
 // internalEditBongMessage changes the contents of the bong message
-func (b *BigBen) internalEditBongMessage(conf tables.GuildSettings, messageId snowflake.ID, title string, emoji discord.ComponentEmoji, names []string, startTime time.Time) {
+func (b *BigBen) internalEditBongMessage(conf database.Guild, messageId snowflake.ID, title string, emoji discord.ComponentEmoji, names []string, startTime time.Time) {
 	if messageId == 0 {
 		return
 	}
@@ -409,15 +380,15 @@ func (b *BigBen) internalEditBongMessage(conf tables.GuildSettings, messageId sn
 	builder.SetContainerComponents(b.bongComponents(emoji, names))
 
 	// update webhook message
-	_, err := b.client.Rest().UpdateWebhookMessage(conf.BongWebhookId, conf.BongWebhookToken, messageId, builder.Build(), 0)
+	_, err := b.client.Rest().UpdateWebhookMessage(conf.BongWebhookID, conf.BongWebhookToken, messageId, builder.Build(), 0)
 	if err != nil {
-		log.Printf("[internalEditBongMessage(\"%s/%s\")] Error: %s\n", conf.GuildId, conf.BongChannelId, err)
+		log.Printf("[internalEditBongMessage(\"%s/%s\")] Error: %s\n", conf.ID, conf.BongChannelID, err)
 	}
 }
 
 // internalBongRoleAssign removes the bong role from the members who currently have it and adds the bong role to the winning member
-func (b *BigBen) internalBongRoleAssign(conf tables.GuildSettings, messageId snowflake.ID, clickIds []snowflake.ID) {
-	if conf.BongRoleId == 0 {
+func (b *BigBen) internalBongRoleAssign(conf database.Guild, messageId snowflake.ID, clickIds []snowflake.ID) {
+	if conf.BongRoleID == 0 {
 		return
 	}
 	if len(clickIds) < 1 {
@@ -425,46 +396,45 @@ func (b *BigBen) internalBongRoleAssign(conf tables.GuildSettings, messageId sno
 	}
 
 	// load role logs
-	var roleLogs []tables.RoleLog
-	err := b.engine.Where("guild_id = ? and message_id != ?", conf.GuildId, messageId).Find(&roleLogs)
+	roleLogs, err := b.engine.GetRoleLogs(context.Background(), database.GetRoleLogsParams{GuildID: conf.ID, MessageID: messageId})
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (get role log row): %s\n", err)
 		return
 	}
 
 	// remove bong role from all members except the winning member
-	c := make([]int64, len(roleLogs))
+	c := make([]int32, len(roleLogs))
 	for i, row := range roleLogs {
-		c[i] = row.Id
-		// if the UserId is the winning member then continue and do not remove the bong role
-		if row.UserId == clickIds[0] {
+		c[i] = row.ID
+		// if the UserID is the winning member then continue and do not remove the bong role
+		if row.UserID == clickIds[0] {
 			continue
 		}
-		err = b.client.Rest().RemoveMemberRole(row.GuildId, row.UserId, row.RoleId)
+		err = b.client.Rest().RemoveMemberRole(row.GuildID, row.UserID, row.RoleID)
 		if err != nil {
 			log.Printf("[internalBongRoleAssign()] Failed to remove guild member role: %s\n", err)
 		}
 	}
 
 	// delete all the rows from the previously fetched role log
-	_, err = b.engine.In("id", c).Delete(&tables.RoleLog{})
+	err = b.engine.DeleteRoles(context.Background(), c)
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (delete checked ids): %s\n", err)
 	}
 
 	// Just assign the role and let Discord check it
-	_, err = b.engine.Insert(&tables.RoleLog{
-		GuildId:   conf.GuildId,
-		MessageId: messageId,
-		RoleId:    conf.BongRoleId,
-		UserId:    clickIds[0],
+	err = b.engine.AddRole(context.Background(), database.AddRoleParams{
+		GuildID:   conf.ID,
+		MessageID: messageId,
+		RoleID:    conf.BongRoleID,
+		UserID:    clickIds[0],
 	})
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Database error (insert role log row): %s\n", err)
 	}
 
 	// add the role to the winning member
-	err = b.client.Rest().AddMemberRole(conf.GuildId, clickIds[0], conf.BongRoleId)
+	err = b.client.Rest().AddMemberRole(conf.ID, clickIds[0], conf.BongRoleID)
 	if err != nil {
 		log.Printf("[internalBongRoleAssign()] Failed to add guild member: %s\n", err)
 	}

@@ -1,21 +1,22 @@
-package main
+package bigben
 
 import (
-	"github.com/discord-plays/bigben/tables"
+	"context"
+	"github.com/discord-plays/bigben/database"
 	"github.com/disgoorg/disgo/bot"
 	"log"
 	"sync"
 	"time"
 )
 
-type messageNotificationCallback func(client bot.Client, wg *sync.WaitGroup, conf tables.GuildSettings, oldYear int, newYear int)
+type messageNotificationCallback func(client bot.Client, wg *sync.WaitGroup, conf database.Guild, oldYear int, newYear int)
 
 func (b *BigBen) messageNotification(name string, call messageNotificationCallback) func() {
 	return func() {
 		log.Printf("[messageNotification()] Sending %s Notification\n", name)
 		now := time.Now()
 		year := now.Year()
-		all, err := b.GetAllGuildSettings()
+		all, err := b.engine.GetAllGuilds(context.Background())
 		if err != nil {
 			log.Printf("[messageNotification()] Error: %s\n", err)
 			return

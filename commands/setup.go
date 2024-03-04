@@ -1,8 +1,12 @@
 package commands
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/discord-plays/bigben/assets"
+	"github.com/discord-plays/bigben/database/types"
 	"github.com/discord-plays/bigben/inter"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/discord"
@@ -55,8 +59,8 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	if event.GuildID() == nil {
 		return
 	}
-	guildSettings, err := x.bot.GetGuildSettings(*event.GuildID())
-	if err != nil {
+	guildSettings, err := x.bot.Engine().GetGuild(context.Background(), *event.GuildID())
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		_ = event.CreateMessage(discord.MessageCreate{
 			Content: "Failed to load guild settings",
 			Flags:   discord.MessageFlagEphemeral,
@@ -64,15 +68,16 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 		log.Printf("Failed to load guild settings: %s\n", err)
 		return
 	}
+	guildSettings.ID = *event.GuildID()
 	data := event.SlashCommandInteractionData()
 	changed := false
 	for _, j := range data.Options {
 		switch j.Name {
 		case "channel":
-			guildSettings.BongChannelId = data.Channel("channel").ID
+			guildSettings.BongChannelID = data.Channel("channel").ID
 			var create bool
-			if guildSettings.BongWebhookId != 0 {
-				getWebhook, err := x.bot.Session().Rest().GetWebhook(guildSettings.BongWebhookId)
+			if guildSettings.BongWebhookID != 0 {
+				getWebhook, err := x.bot.Session().Rest().GetWebhook(guildSettings.BongWebhookID)
 				if err != nil || getWebhook == nil {
 					create = true
 				}
@@ -83,7 +88,7 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 			var token string
 			if create {
 				n := utils.GetStartOfHourTime().Add(time.Hour)
-				a, err := x.bot.Session().Rest().CreateWebhook(guildSettings.BongChannelId, discord.WebhookCreate{
+				a, err := x.bot.Session().Rest().CreateWebhook(guildSettings.BongChannelID, discord.WebhookCreate{
 					Name:   "Big Ben",
 					Avatar: assets.ReadClockFaceByTimeAsOptionalIcon(n),
 				})
@@ -93,20 +98,20 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 				token = a.Token
 				wh = a
 			} else {
-				wh, err = x.bot.Session().Rest().UpdateWebhook(guildSettings.BongWebhookId, discord.WebhookUpdate{
+				wh, err = x.bot.Session().Rest().UpdateWebhook(guildSettings.BongWebhookID, discord.WebhookUpdate{
 					Name: utils.PString("Big Ben"),
 				})
 				if err != nil {
 					continue
 				}
 			}
-			guildSettings.BongWebhookId = wh.ID()
+			guildSettings.BongWebhookID = wh.ID()
 			if token != "" {
 				guildSettings.BongWebhookToken = token
 			}
 			changed = true
 		case "role":
-			guildSettings.BongRoleId = data.Role("role").ID
+			guildSettings.BongRoleID = data.Role("role").ID
 			changed = true
 		case "emoji":
 			strVal := data.String("emoji")
@@ -117,17 +122,17 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	chanVal := "None"
 	roleVal := "None"
 	emojiVal := "None"
-	if guildSettings.BongChannelId != 0 {
-		chanVal = fmt.Sprintf("<#%s>", guildSettings.BongChannelId)
+	if guildSettings.BongChannelID != 0 {
+		chanVal = fmt.Sprintf("<#%s>", guildSettings.BongChannelID)
 	}
-	if guildSettings.BongRoleId != 0 {
-		roleVal = fmt.Sprintf("<@&%s>", guildSettings.BongRoleId)
+	if guildSettings.BongRoleID != 0 {
+		roleVal = fmt.Sprintf("<@&%s>", guildSettings.BongRoleID)
 	}
 	if guildSettings.BongEmoji != "" {
 		emojiVal = guildSettings.BongEmoji
 	}
 	if changed {
-		err = x.bot.PutGuildSettings(guildSettings)
+		err = x.bot.Engine().UpdateGuild(context.Background(), types.ConvertGuildToParams(guildSettings))
 		if err != nil {
 			_ = event.CreateMessage(discord.MessageCreate{
 				Content: "Failed to save guild settings",

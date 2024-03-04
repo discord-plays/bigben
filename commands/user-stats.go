@@ -1,9 +1,12 @@
 package commands
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/inter"
-	"github.com/discord-plays/bigben/tables"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
@@ -15,11 +18,6 @@ var _ CommandHandler = &userStatsCommand{}
 
 type userStatsCommand struct {
 	bot inter.MainBotInterface
-}
-
-type userStatsTable struct {
-	Count   int64   `xorm:"a"`
-	Average float64 `xorm:"b"`
 }
 
 func (x *userStatsCommand) Init(bot inter.MainBotInterface) {
@@ -43,36 +41,15 @@ func (x *userStatsCommand) Command() discord.SlashCommandCreate {
 func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
 	data := event.SlashCommandInteractionData()
 	user := data.User("user")
-	var a userStatsTable
-	ok, err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and user_id = ? and won = 1", event.GuildID().String(), user.ID.String()).Select("count(speed) as a, avg(speed) as b").Get(&a)
-	if err != nil {
+	stats, err := x.bot.Engine().UserStats(context.Background(), database.UserStatsParams{GuildID: *event.GuildID(), UserID: user.ID})
+	noRows := errors.Is(err, sql.ErrNoRows)
+	if err != nil && !noRows {
 		log.Printf("[UserStatsCommand] Database error: %s\n", err)
 		return
 	}
-	if ok {
-		avg := time.Duration(int64(a.Average * float64(time.Millisecond))).Round(time.Millisecond)
-		_ = event.CreateMessage(discord.MessageCreate{
-			Embeds: []discord.Embed{
-				{
-					Title: fmt.Sprintf("Stats for %s", user.Username),
-					Color: 0xd4af37,
-					Fields: []discord.EmbedField{
-						{Name: "User", Value: user.String()},
-						{Name: "Total bong count", Value: fmt.Sprint(a.Count)},
-						{Name: "Average reaction time", Value: avg.String()},
-					},
-				},
-			},
-			AllowedMentions: &discord.AllowedMentions{
-				//Parse: []discord.AllowedMentionType{discord.AllowedMentionTypeUsers},
-				Users: []snowflake.ID{user.ID},
-			},
-		})
-		if err != nil {
-			log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
-		}
-	} else {
-		_ = event.CreateMessage(discord.MessageCreate{
+
+	if noRows {
+		err = event.CreateMessage(discord.MessageCreate{
 			Embeds: []discord.Embed{
 				{
 					Title:       fmt.Sprintf("Stats for %s", user.String()),
@@ -81,8 +58,29 @@ func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCr
 				},
 			},
 		})
+	} else {
+		avg := time.Duration(int64(stats.AverageSpeed * float64(time.Millisecond))).Round(time.Millisecond)
+		err = event.CreateMessage(discord.MessageCreate{
+			Embeds: []discord.Embed{
+				{
+					Title: fmt.Sprintf("Stats for %s", user.Username),
+					Color: 0xd4af37,
+					Fields: []discord.EmbedField{
+						{Name: "User", Value: user.String()},
+						{Name: "Total bong count", Value: fmt.Sprint(stats.TotalBongs)},
+						{Name: "Average reaction time", Value: avg.String()},
+					},
+				},
+			},
+			AllowedMentions: &discord.AllowedMentions{
+				Users: []snowflake.ID{user.ID},
+			},
+		})
 		if err != nil {
 			log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
 		}
+	}
+	if err != nil {
+		log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
 	}
 }
