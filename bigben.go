@@ -472,6 +472,10 @@ func (b *BigBen) bongComponents(emoji discord.ComponentEmoji, names []string) di
 		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyle(style), j, fmt.Sprintf("none-%d", i), "").AsDisabled())
 	}
 
+	if len(names) > 3 {
+		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyleSecondary, fmt.Sprintf("+%d", len(names)-3), "more", "").AsDisabled())
+	}
+
 	// return the buttons in an action row
 	return discord.NewActionRow(rowButtons...)
 }
