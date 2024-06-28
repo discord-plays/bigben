@@ -40,7 +40,7 @@ FROM roles
 WHERE id IN (/*SLICE:role_ids*/?)
 `
 
-func (q *Queries) DeleteRoles(ctx context.Context, roleIds []int32) error {
+func (q *Queries) DeleteRoles(ctx context.Context, roleIds []int64) error {
 	query := deleteRoles
 	var queryParams []interface{}
 	if len(roleIds) > 0 {

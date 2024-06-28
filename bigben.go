@@ -403,7 +403,7 @@ func (b *BigBen) internalBongRoleAssign(conf database.Guild, messageId snowflake
 	}
 
 	// remove bong role from all members except the winning member
-	c := make([]int32, len(roleLogs))
+	c := make([]int64, len(roleLogs))
 	for i, row := range roleLogs {
 		c[i] = row.ID
 		// if the UserID is the winning member then continue and do not remove the bong role

@@ -9,7 +9,7 @@ import (
 )
 
 type Bong struct {
-	ID            int32        `json:"id"`
+	ID            int64        `json:"id"`
 	GuildID       snowflake.ID `json:"guild_id"`
 	UserID        snowflake.ID `json:"user_id"`
 	MessageID     snowflake.ID `json:"message_id"`
@@ -28,7 +28,7 @@ type Guild struct {
 }
 
 type Role struct {
-	ID        int32        `json:"id"`
+	ID        int64        `json:"id"`
 	GuildID   snowflake.ID `json:"guild_id"`
 	MessageID snowflake.ID `json:"message_id"`
 	RoleID    snowflake.ID `json:"role_id"`
