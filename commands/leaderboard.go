@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/inter"
-	"github.com/discord-plays/bigben/tables"
+	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
@@ -54,6 +56,11 @@ func (x *leaderboardCommand) Command() discord.SlashCommandCreate {
 			}},
 		},
 	}
+}
+
+type Row struct {
+	UserID snowflake.ID
+	Value  float64
 }
 
 func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
@@ -107,91 +114,59 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 	switch data.String("type") {
 	case "total-clicks":
 		title = "Total Clicks Leaderboard"
-		var a []leaderboardCountTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, count(user_id) as a").Limit(10).Find(&a)
+		leaderboard, err := x.bot.Engine().TotalClicksLeaderboard(context.Background(), database.TotalClicksLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		rows = make([]string, len(a))
-		for i, j := range a {
-			if i >= 10 {
-				break
-			}
-			rows[i] = fmt.Sprintf("%d. <@%s> (%d bongs)", i+1, j.UserId, j.Count)
-		}
+		utils.MapIndex(leaderboard, func(t database.TotalClicksLeaderboardRow, i int) string {
+			return fmt.Sprintf("%d. <@%s> (%d bongs)", i+1, t.UserID, t.BongCount)
+		})
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
 	case "average-speed":
 		title = "Average Click Speed Leaderboard"
-		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, avg(speed) as a").Limit(10).Find(&a)
+		leaderboard, err := x.bot.Engine().AverageSpeedLeaderboard(context.Background(), database.AverageSpeedLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		rows = make([]string, len(a))
-		for i, j := range a {
-			if i >= 10 {
-				break
-			}
-			duration, err := time.ParseDuration(fmt.Sprintf("%fms", j.Average))
-			if err != nil {
-				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
-				return
-			}
-			duration = duration.Truncate(time.Millisecond)
-			rows[i] = fmt.Sprintf("%d. <@%s> (%s average reaction speed)", i+1, j.UserId, duration)
-		}
+		utils.MapIndex(leaderboard, func(t database.AverageSpeedLeaderboardRow, i int) string {
+			dur := time.Duration(t.AverageSpeed * float64(time.Millisecond))
+			dur = dur.Truncate(time.Millisecond)
+			return fmt.Sprintf("%d. <@%s> (%s average reaction speed)", i+1, t.UserID, dur)
+		})
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
 	case "slowest-speed":
 		title = "Slowest Click Speed Leaderboard"
-		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a DESC, user_id DESC").Select("user_id, max(speed) as a").Limit(10).Find(&a)
+		leaderboard, err := x.bot.Engine().SlowestSpeedLeaderboard(context.Background(), database.SlowestSpeedLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		rows = make([]string, len(a))
-		for i, j := range a {
-			if i >= 10 {
-				break
-			}
-			duration, err := time.ParseDuration(fmt.Sprintf("%fms", j.Average))
-			if err != nil {
-				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs slowest reaction speed)", i+1, j.UserId, j.Average)
-				return
-			}
-			duration = duration.Truncate(time.Millisecond)
-			rows[i] = fmt.Sprintf("%d. <@%s> (%s slowest reaction speed)", i+1, j.UserId, duration)
-		}
+		utils.MapIndex(leaderboard, func(t database.SlowestSpeedLeaderboardRow, i int) string {
+			dur := time.Duration(t.MaxSpeed * float64(time.Millisecond))
+			dur = dur.Truncate(time.Millisecond)
+			return fmt.Sprintf("%d. <@%s> (%s slowest reaction speed)", i+1, t.UserID, dur)
+		})
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}
 	case "fastest-speed":
 		title = "Fastest Click Speed Leaderboard"
-		var a []leaderboardAverageTable
-		err := x.bot.Engine().Table(&tables.BongLog{}).Where("guild_id = ? and msg_id > ? and won = ?", event.GuildID().String(), startFlake, true).GroupBy("user_id").OrderBy("a ASC, user_id DESC").Select("user_id, min(speed) as a").Limit(10).Find(&a)
+		leaderboard, err := x.bot.Engine().FastestSpeedLeaderboard(context.Background(), database.FastestSpeedLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
-			log.Printf("[LeaderbaordCommand] Database error: %s\n", err)
+			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		rows = make([]string, len(a))
-		for i, j := range a {
-			if i >= 10 {
-				break
-			}
-			duration, err := time.ParseDuration(fmt.Sprintf("%fms", j.Average))
-			if err != nil {
-				rows[i] = fmt.Sprintf("%d. <@%s> (%.0fs quickest reaction speed)", i+1, j.UserId, j.Average)
-				return
-			}
-			duration = duration.Truncate(time.Millisecond)
-			rows[i] = fmt.Sprintf("%d. <@%s> (%s quickest reaction speed)", i+1, j.UserId, duration)
-		}
+		utils.MapIndex(leaderboard, func(t database.FastestSpeedLeaderboardRow, i int) string {
+			dur := time.Duration(t.MinSpeed * float64(time.Millisecond))
+			dur = dur.Truncate(time.Millisecond)
+			return fmt.Sprintf("%d. <@%s> (%s quickest reaction speed)", i+1, t.UserID, dur)
+		})
 		if len(rows) == 0 {
 			rows = []string{"No bong clicks found"}
 		}

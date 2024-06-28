@@ -1,0 +1,53 @@
+version: "2"
+sql:
+  - engine: mysql
+    queries: database/queries
+    schema: database/migrations
+    gen:
+      go:
+        package: "database"
+        out: "database"
+        emit_json_tags: true
+        overrides:
+          - column: "*.guild_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.user_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.message_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.interaction_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.bong_channel_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.bong_webhook_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.bong_role_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "*.role_id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "users.id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "guilds.id"
+            go_type:
+              import: "github.com/disgoorg/snowflake/v2"
+              type: "ID"
+          - column: "bongs.speed"
+            go_type: "int64"

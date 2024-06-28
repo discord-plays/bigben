@@ -1,20 +1,20 @@
-package main
+package bigben
 
 import (
+	"context"
 	"fmt"
 	channelSorter "github.com/MrMelon54/channel-sorter"
-	"github.com/discord-plays/bigben/tables"
+	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 	"log"
 	"sync"
 	"time"
-	"xorm.io/xorm"
 )
 
 type CurrentBong struct {
-	Engine    *xorm.Engine
+	Engine    *database.Queries
 	Text      string
 	StartTime time.Time
 	EndTime   time.Time
@@ -36,14 +36,14 @@ type GuildCurrentBong struct {
 }
 
 type ClickInfo struct {
-	GuildId   snowflake.ID
-	MessageId snowflake.ID
-	UserId    snowflake.ID
-	InterId   snowflake.ID
-	Name      string
+	GuildId       snowflake.ID
+	MessageId     snowflake.ID
+	UserId        snowflake.ID
+	InteractionId snowflake.ID
+	Name          string
 }
 
-func NewCurrentBong(engine *xorm.Engine, text string, sTime, eTime time.Time) *CurrentBong {
+func NewCurrentBong(engine *database.Queries, text string, sTime, eTime time.Time) *CurrentBong {
 	c := &CurrentBong{
 		Engine:    engine,
 		Text:      text,
@@ -70,7 +70,7 @@ outer:
 		case i := <-c.mChan:
 			g := c.GuildMapItem(i.GuildId)
 			g.Lock.Lock()
-			ct := i.InterId.Time()
+			ct := i.InteractionId.Time()
 			mt := i.MessageId.Time()
 			ts := ct.Sub(mt)
 			if g.MessageId == i.MessageId {
@@ -112,7 +112,7 @@ func (c *CurrentBong) GuildMapItem(guildId snowflake.ID) *GuildCurrentBong {
 // the provided settings.
 //
 // TODO(Melon): refactor this
-func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
+func (c *CurrentBong) RandomGuildData(all []database.Guild) {
 	c.mapLock.Lock()
 	for _, i := range all {
 		y := &GuildCurrentBong{
@@ -122,11 +122,11 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 			ClickNames: []string{},
 			In:         make(chan ClickInfo, 10),
 		}
-		c.guilds[i.GuildId] = y
+		c.guilds[i.ID] = y
 		go func() {
 			won := true
 			z := channelSorter.Sort[ClickInfo](time.Minute*1, y.In, func(a ClickInfo, b ClickInfo) bool {
-				return a.InterId.Time().Before(b.InterId.Time())
+				return a.InteractionId.Time().Before(b.InteractionId.Time())
 			})
 		kill:
 			for {
@@ -135,25 +135,25 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 					break kill
 				case i2 := <-z:
 					for _, i := range i2 {
-						ct := i.InterId.Time()
+						ct := i.InteractionId.Time()
 						mt := i.MessageId.Time()
 						ts := ct.Sub(mt)
 						n := 0
 					tryBongLogInsert:
-						_, err := c.Engine.Insert(&tables.BongLog{
-							GuildId: i.GuildId,
-							UserId:  i.UserId,
-							MsgId:   i.MessageId,
-							InterId: i.InterId,
-							Won:     &won,
-							Speed:   ts.Milliseconds(),
+						err := c.Engine.AddBong(context.Background(), database.AddBongParams{
+							GuildID:       i.GuildId,
+							UserID:        i.UserId,
+							MessageID:     i.MessageId,
+							InteractionID: i.InteractionId,
+							Won:           won,
+							Speed:         ts.Milliseconds(),
 						})
 						if err != nil {
 							if n > 2 {
-								log.Println("Failed to insert into BongLog, giving up:", err)
-								log.Printf("Manual log entry: '%s,%s,%s,%s,%v,%v'\n", i.GuildId, i.UserId, i.MessageId, i.InterId, won, ts.Milliseconds())
+								log.Println("Failed to insert into Bong, giving up:", err)
+								log.Printf("Manual log entry: '%s,%s,%s,%s,%v,%v'\n", i.GuildId, i.UserId, i.MessageId, i.InteractionId, won, ts.Milliseconds())
 							} else {
-								log.Println("Failed to insert into BongLog, trying again:", err)
+								log.Println("Failed to insert into Bong, trying again:", err)
 								n++
 								goto tryBongLogInsert
 							}
@@ -163,19 +163,11 @@ func (c *CurrentBong) RandomGuildData(all []tables.GuildSettings) {
 						}
 						userId := i.UserId
 						tag := i.Name
-						count, _ := c.Engine.Count(&tables.UserLog{Id: userId})
-						if count == 0 {
-							_, err := c.Engine.Insert(&tables.UserLog{Id: userId, Tag: tag})
-							if err != nil {
-								log.Printf("[CurrentBong::internalLoop()] Failed to insert into user log (%v, %s): %s\n", userId, tag, err)
-								return
-							}
-						} else {
-							_, err := c.Engine.Update(&tables.UserLog{Id: userId, Tag: tag}, tables.UserLog{Id: userId})
-							if err != nil {
-								log.Printf("[CurrentBong::internalLoop()] Failed to update user log (%v, %s): %s\n", userId, tag, err)
-								return
-							}
+						// ignoring errors on purpose, I don't remember why?
+						err = c.Engine.ReplaceUser(context.Background(), database.ReplaceUserParams{ID: userId, Tag: tag})
+						if err != nil {
+							log.Printf("[CurrentBong::internalLoop()] Failed to update user log (%v, %s): %s\n", userId, tag, err)
+							return
 						}
 					}
 				}
@@ -191,10 +183,10 @@ func (c *CurrentBong) TriggerClick(event *events.ComponentInteractionCreate) {
 		return
 	}
 	c.mChan <- ClickInfo{
-		GuildId:   *event.GuildID(),
-		MessageId: event.Message.ID,
-		UserId:    member.User.ID,
-		InterId:   event.ID(),
-		Name:      member.User.Tag(),
+		GuildId:       *event.GuildID(),
+		MessageId:     event.Message.ID,
+		UserId:        member.User.ID,
+		InteractionId: event.ID(),
+		Name:          member.User.Tag(),
 	}
 }
