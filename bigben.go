@@ -448,7 +448,8 @@ func (b *BigBen) bongEmbeds(title string, t time.Time) discord.Embed {
 // bongComponents returns the button components below the bong message
 func (b *BigBen) bongComponents(emoji discord.ComponentEmoji, names []string) discord.ContainerComponent {
 	// limit to displaying the top 3 members
-	if len(names) > 3 {
+	limitNames := len(names) > 3
+	if limitNames {
 		names = names[:3]
 	}
 	// format click/clicks text
@@ -472,7 +473,7 @@ func (b *BigBen) bongComponents(emoji discord.ComponentEmoji, names []string) di
 		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyle(style), j, fmt.Sprintf("none-%d", i), "").AsDisabled())
 	}
 
-	if len(names) > 3 {
+	if limitNames {
 		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyleSecondary, fmt.Sprintf("+%d", len(names)-3), "more", "").AsDisabled())
 	}
 
