@@ -119,7 +119,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		utils.MapIndex(leaderboard, func(t database.TotalClicksLeaderboardRow, i int) string {
+		rows = utils.MapIndex(leaderboard, func(t database.TotalClicksLeaderboardRow, i int) string {
 			return fmt.Sprintf("%d. <@%s> (%d bongs)", i+1, t.UserID, t.BongCount)
 		})
 		if len(rows) == 0 {
@@ -132,7 +132,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		utils.MapIndex(leaderboard, func(t database.AverageSpeedLeaderboardRow, i int) string {
+		rows = utils.MapIndex(leaderboard, func(t database.AverageSpeedLeaderboardRow, i int) string {
 			dur := time.Duration(t.AverageSpeed * float64(time.Millisecond))
 			dur = dur.Truncate(time.Millisecond)
 			return fmt.Sprintf("%d. <@%s> (%s average reaction speed)", i+1, t.UserID, dur)
@@ -147,7 +147,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		utils.MapIndex(leaderboard, func(t database.SlowestSpeedLeaderboardRow, i int) string {
+		rows = utils.MapIndex(leaderboard, func(t database.SlowestSpeedLeaderboardRow, i int) string {
 			dur := time.Duration(t.MaxSpeed * float64(time.Millisecond))
 			dur = dur.Truncate(time.Millisecond)
 			return fmt.Sprintf("%d. <@%s> (%s slowest reaction speed)", i+1, t.UserID, dur)
@@ -162,7 +162,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
 			return
 		}
-		utils.MapIndex(leaderboard, func(t database.FastestSpeedLeaderboardRow, i int) string {
+		rows = utils.MapIndex(leaderboard, func(t database.FastestSpeedLeaderboardRow, i int) string {
 			dur := time.Duration(t.MinSpeed * float64(time.Millisecond))
 			dur = dur.Truncate(time.Millisecond)
 			return fmt.Sprintf("%d. <@%s> (%s quickest reaction speed)", i+1, t.UserID, dur)
