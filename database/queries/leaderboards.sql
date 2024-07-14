@@ -5,7 +5,7 @@ WHERE guild_id = ?
   and message_id > ?
   and won = true
 GROUP BY user_id
-ORDER BY user_id DESC, user_id DESC
+ORDER BY bong_count DESC, user_id DESC
 LIMIT 10;
 
 -- name: AverageSpeedLeaderboard :many
