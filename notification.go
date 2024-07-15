@@ -3,8 +3,8 @@ package bigben
 import (
 	"context"
 	"github.com/discord-plays/bigben/database"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/disgoorg/disgo/bot"
-	"log"
 	"sync"
 	"time"
 )
@@ -13,12 +13,12 @@ type messageNotificationCallback func(client bot.Client, wg *sync.WaitGroup, con
 
 func (b *BigBen) messageNotification(name string, call messageNotificationCallback) func() {
 	return func() {
-		log.Printf("[messageNotification()] Sending %s Notification\n", name)
+		logger.Logger.Info("Sending " + name + " Notification")
 		now := time.Now()
 		year := now.Year()
 		all, err := b.engine.GetAllGuilds(context.Background())
 		if err != nil {
-			log.Printf("[messageNotification()] Error: %s\n", err)
+			logger.Logger.Error("GetAllGuilds", "err", err)
 			return
 		}
 		wg := &sync.WaitGroup{}

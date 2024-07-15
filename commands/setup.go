@@ -8,11 +8,11 @@ import (
 	"github.com/discord-plays/bigben/assets"
 	"github.com/discord-plays/bigben/database/types"
 	"github.com/discord-plays/bigben/inter"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/json"
-	"log"
 	"strings"
 	"time"
 )
@@ -65,7 +65,7 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 			Content: "Failed to load guild settings",
 			Flags:   discord.MessageFlagEphemeral,
 		})
-		log.Printf("Failed to load guild settings: %s\n", err)
+		logger.Logger.Error("Failed to load guild settings", "err", err)
 		return
 	}
 	guildConfig.ID = *event.GuildID()
@@ -138,7 +138,7 @@ func (x *setupCommand) Handler(event *events.ApplicationCommandInteractionCreate
 				Content: "Failed to save guild settings",
 				Flags:   discord.MessageFlagEphemeral,
 			})
-			log.Printf("Failed to save guild settings: %s\n", err)
+			logger.Logger.Error("Failed to save guild settings", "err", err)
 			return
 		}
 	}

@@ -3,8 +3,8 @@ package message
 import (
 	_ "embed"
 	"github.com/discord-plays/bigben/database"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/disgoorg/disgo/bot"
-	"log"
 	"sync"
 	"time"
 )
@@ -18,7 +18,7 @@ func SendChristmasNotification(client bot.Client, wg *sync.WaitGroup, conf datab
 	builder := MakeMessageNotification("Merry Christmas", christmasMessage, "https://twemoji.maxcdn.com/v/latest/72x72/1f384.png", 0x5c9238, oldYear, newYear, time.Date(newYear, time.December, 25, 0, 0, 0, 0, time.UTC))
 	_, err := client.Rest().CreateMessage(conf.BongChannelID, builder.Build())
 	if err != nil {
-		log.Printf("[sendChristmasNotification(\"%s/%s\")] Error: %s\n", conf.ID, conf.BongChannelID, err)
+		logger.Logger.Error("SendChristmasNotification", "id", conf.ID, "channel id", conf.BongChannelID, "err", err)
 		return
 	}
 }

@@ -3,9 +3,9 @@ package message
 import (
 	_ "embed"
 	"github.com/discord-plays/bigben/database"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
-	"log"
 	"sync"
 	"time"
 )
@@ -21,7 +21,7 @@ func SendNewYearNotification(client bot.Client, wg *sync.WaitGroup, conf databas
 	builder.SetContainerComponents(discord.NewActionRow(a...))
 	_, err := client.Rest().CreateMessage(conf.BongChannelID, builder.Build())
 	if err != nil {
-		log.Printf("[SendNewYearNotification(\"%s/%s\")] Error: %s\n", conf.ID, conf.BongChannelID, err)
+		logger.Logger.Error("SendNewYearNotification", "id", conf.ID, "channel id", conf.BongChannelID, "err", err)
 		return
 	}
 }

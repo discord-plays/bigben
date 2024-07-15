@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/inter"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
-	"log"
 	"time"
 )
 
@@ -44,7 +44,7 @@ func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCr
 	stats, err := x.bot.Engine().UserStats(context.Background(), database.UserStatsParams{GuildID: *event.GuildID(), UserID: user.ID})
 	noRows := errors.Is(err, sql.ErrNoRows)
 	if err != nil && !noRows {
-		log.Printf("[UserStatsCommand] Database error: %s\n", err)
+		logger.Logger.Error("UserStats", "err", err)
 		return
 	}
 
@@ -76,11 +76,8 @@ func (x *userStatsCommand) Handler(event *events.ApplicationCommandInteractionCr
 				Users: []snowflake.ID{user.ID},
 			},
 		})
-		if err != nil {
-			log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
-		}
 	}
 	if err != nil {
-		log.Printf("[UserStatsCommand] Failed to send interaction: %s\n", err)
+		logger.Logger.Error("Failed to send interaction", "err", err)
 	}
 }

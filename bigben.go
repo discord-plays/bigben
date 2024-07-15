@@ -8,6 +8,7 @@ import (
 	"github.com/discord-plays/bigben/commands"
 	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/inter"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/discord-plays/bigben/message"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo"
@@ -19,7 +20,6 @@ import (
 	"github.com/disgoorg/json"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/robfig/cron/v3"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -80,7 +80,7 @@ func NewBigBen(engine *database.Queries, token, uploadToken, statusPush string, 
 		return nil, err
 	}
 	client.AddEventListeners(&events.ListenerAdapter{OnReady: func(event *events.Ready) {
-		log.Printf("[Ready] Starting BigBen as %s\n", event.User.Tag())
+		logger.Logger.Info("Starting BigBen", "tag", event.User.Tag())
 		_ = client.SetPresence(context.Background(), func(presenceUpdate *gateway.MessageDataPresenceUpdate) {
 			presenceUpdate.Activities = []discord.Activity{
 				{
@@ -125,7 +125,7 @@ func (b *BigBen) init(engine *database.Queries, appId, guildId snowflake.ID, cli
 	b.bingSetup()
 
 	// setup cron library with second support
-	b.cron = cron.New(cron.WithSeconds())
+	b.cron = cron.New(cron.WithSeconds(), utils.WithCronLogger())
 
 	// debug mode sends a bong every 2 minutes
 	if os.Getenv("DEBUG_MODE") == "1" {
@@ -165,10 +165,10 @@ func (b *BigBen) init(engine *database.Queries, appId, guildId snowflake.ID, cli
 // This method blocks until sent an interrupt signal.
 func (b *BigBen) RunAndBlock() {
 	if err := b.client.OpenGateway(context.TODO()); err != nil {
-		log.Printf("Failed to connect to gateway: %s", err)
+		logger.Logger.Warn("Failed to connect to gateway", "err", err)
 	}
 
-	log.Println("[Main] BigBen is now bonging. Press CTRL-C for maintenance.")
+	logger.Logger.Info("BigBen is now bonging. Press CTRL-C for maintenance.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -196,12 +196,12 @@ func (b *BigBen) statusUpdate() {
 
 // bingBong sends the hourly bong message to all guilds
 func (b *BigBen) bingBong() {
-	log.Println("[bingBong()] Sending hourly bong")
+	logger.Logger.Info("Sending hourly bong")
 
 	// read guild settings
 	all, err := b.engine.GetAllGuilds(context.Background())
 	if err != nil {
-		log.Printf("[bingBong()] Error: %s\n", err)
+		logger.Logger.Error("GetAllGuilds", "err", err)
 		return
 	}
 
@@ -243,7 +243,7 @@ func (b *BigBen) bingSetup() {
 	// load guild settings
 	all, err := b.engine.GetAllGuilds(context.Background())
 	if err != nil {
-		log.Printf("[bingBong()] Error: %s\n", err)
+		logger.Logger.Error("GetAllGuilds", "err", err)
 		return
 	}
 
@@ -272,7 +272,7 @@ func (b *BigBen) updateMessageData() {
 	// load guild settings
 	all, err := b.engine.GetAllGuilds(context.Background())
 	if err != nil {
-		log.Printf("[updateMessageData()] Error: %s\n", err)
+		logger.Logger.Error("GetAllGuilds", "err", err)
 		return
 	}
 
@@ -358,7 +358,7 @@ func (b *BigBen) internalSendBongMessage(g *GuildCurrentBong, conf database.Guil
 	// send webhook message
 	m, err := b.client.Rest().CreateWebhookMessage(conf.BongWebhookID, conf.BongWebhookToken, builder.Build(), true, 0)
 	if err != nil {
-		log.Printf("[internalSendBongMessage(\"%s/%s\")] Error: %s\n", conf.ID, conf.BongChannelID, err)
+		logger.Logger.Error("CreateWebhookMessage", "id", conf.ID, "channel id", conf.BongChannelID, "err", err)
 		return
 	}
 
@@ -382,7 +382,7 @@ func (b *BigBen) internalEditBongMessage(conf database.Guild, messageId snowflak
 	// update webhook message
 	_, err := b.client.Rest().UpdateWebhookMessage(conf.BongWebhookID, conf.BongWebhookToken, messageId, builder.Build(), 0)
 	if err != nil {
-		log.Printf("[internalEditBongMessage(\"%s/%s\")] Error: %s\n", conf.ID, conf.BongChannelID, err)
+		logger.Logger.Error("UpdateWebhookMessage", "id", conf.ID, "channel id", conf.BongChannelID, "err", err)
 	}
 }
 
@@ -398,7 +398,7 @@ func (b *BigBen) internalBongRoleAssign(conf database.Guild, messageId snowflake
 	// load role logs
 	roleLogs, err := b.engine.GetRoleLogs(context.Background(), database.GetRoleLogsParams{GuildID: conf.ID, MessageID: messageId})
 	if err != nil {
-		log.Printf("[internalBongRoleAssign()] Database error (get role log row): %s\n", err)
+		logger.Logger.Error("GetRoleLogs", "err", err)
 		return
 	}
 
@@ -412,14 +412,14 @@ func (b *BigBen) internalBongRoleAssign(conf database.Guild, messageId snowflake
 		}
 		err = b.client.Rest().RemoveMemberRole(row.GuildID, row.UserID, row.RoleID)
 		if err != nil {
-			log.Printf("[internalBongRoleAssign()] Failed to remove guild member role: %s\n", err)
+			logger.Logger.Error("Failed to remove guild member role", "err", err)
 		}
 	}
 
 	// delete all the rows from the previously fetched role log
 	err = b.engine.DeleteRoles(context.Background(), c)
 	if err != nil {
-		log.Printf("[internalBongRoleAssign()] Database error (delete checked ids): %s\n", err)
+		logger.Logger.Error("DeleteRoles", "err", err)
 	}
 
 	// Just assign the role and let Discord check it
@@ -430,13 +430,13 @@ func (b *BigBen) internalBongRoleAssign(conf database.Guild, messageId snowflake
 		UserID:    clickIds[0],
 	})
 	if err != nil {
-		log.Printf("[internalBongRoleAssign()] Database error (insert role log row): %s\n", err)
+		logger.Logger.Error("AddRole", "err", err)
 	}
 
 	// add the role to the winning member
 	err = b.client.Rest().AddMemberRole(conf.ID, clickIds[0], conf.BongRoleID)
 	if err != nil {
-		log.Printf("[internalBongRoleAssign()] Failed to add guild member: %s\n", err)
+		logger.Logger.Error("AddMemberRole", "err", err)
 	}
 }
 

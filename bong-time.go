@@ -5,10 +5,10 @@ import (
 	"fmt"
 	channelSorter "github.com/MrMelon54/channel-sorter"
 	"github.com/discord-plays/bigben/database"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
-	"log"
 	"sync"
 	"time"
 )
@@ -150,10 +150,10 @@ func (c *CurrentBong) RandomGuildData(all []database.Guild) {
 						})
 						if err != nil {
 							if n > 2 {
-								log.Println("Failed to insert into Bong, giving up:", err)
-								log.Printf("Manual log entry: '%s,%s,%s,%s,%v,%v'\n", i.GuildId, i.UserId, i.MessageId, i.InteractionId, won, ts.Milliseconds())
+								logger.Logger.Error("Failed to insert into Bong, giving up", "err", err)
+								logger.Logger.Log(logger.DevInsertLevel, "Manual log entry", "row", fmt.Sprintf("%s,%s,%s,%s,%v,%v", i.GuildId, i.UserId, i.MessageId, i.InteractionId, won, ts.Milliseconds()))
 							} else {
-								log.Println("Failed to insert into Bong, trying again:", err)
+								logger.Logger.Error("Failed to insert into Bong, trying again", "err", err)
 								n++
 								goto tryBongLogInsert
 							}
@@ -166,7 +166,7 @@ func (c *CurrentBong) RandomGuildData(all []database.Guild) {
 						// ignoring errors on purpose, I don't remember why?
 						err = c.Engine.ReplaceUser(context.Background(), database.ReplaceUserParams{ID: userId, Tag: tag})
 						if err != nil {
-							log.Printf("[CurrentBong::internalLoop()] Failed to update user log (%v, %s): %s\n", userId, tag, err)
+							logger.Logger.Error("Failed to update user log", "user", userId, "tag", tag, "err", err)
 							return
 						}
 					}

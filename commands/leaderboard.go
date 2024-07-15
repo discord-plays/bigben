@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/discord-plays/bigben/database"
 	"github.com/discord-plays/bigben/inter"
+	"github.com/discord-plays/bigben/logger"
 	"github.com/discord-plays/bigben/utils"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/snabb/isoweek"
-	"log"
 	"strings"
 	"time"
 )
@@ -72,7 +72,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 	// Send loading response
 	err := event.DeferCreateMessage(false)
 	if err != nil {
-		log.Printf("[LeaderboardCommand] Failed to send interaction: %s\n", err)
+		logger.Logger.Error("Failed to send interaction", "err", err)
 	}
 
 	var startTime time.Time
@@ -116,7 +116,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		title = "Total Clicks Leaderboard"
 		leaderboard, err := x.bot.Engine().TotalClicksLeaderboard(context.Background(), database.TotalClicksLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
-			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
+			logger.Logger.Error("TotalClicksLeaderboard", "err", err)
 			return
 		}
 		rows = utils.MapIndex(leaderboard, func(t database.TotalClicksLeaderboardRow, i int) string {
@@ -129,7 +129,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		title = "Average Click Speed Leaderboard"
 		leaderboard, err := x.bot.Engine().AverageSpeedLeaderboard(context.Background(), database.AverageSpeedLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
-			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
+			logger.Logger.Error("AverageSpeedLeaderboard", "err", err)
 			return
 		}
 		rows = utils.MapIndex(leaderboard, func(t database.AverageSpeedLeaderboardRow, i int) string {
@@ -144,7 +144,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		title = "Slowest Click Speed Leaderboard"
 		leaderboard, err := x.bot.Engine().SlowestSpeedLeaderboard(context.Background(), database.SlowestSpeedLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
-			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
+			logger.Logger.Error("SlowestSpeedLeaderboard", "err", err)
 			return
 		}
 		rows = utils.MapIndex(leaderboard, func(t database.SlowestSpeedLeaderboardRow, i int) string {
@@ -159,7 +159,7 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 		title = "Fastest Click Speed Leaderboard"
 		leaderboard, err := x.bot.Engine().FastestSpeedLeaderboard(context.Background(), database.FastestSpeedLeaderboardParams{GuildID: *event.GuildID(), MessageID: startFlake})
 		if err != nil {
-			log.Printf("[LeaderboardCommand] Database error: %s\n", err)
+			logger.Logger.Error("FastestSpeedLeaderboard", "err", err)
 			return
 		}
 		rows = utils.MapIndex(leaderboard, func(t database.FastestSpeedLeaderboardRow, i int) string {
@@ -192,6 +192,6 @@ func (x *leaderboardCommand) Handler(event *events.ApplicationCommandInteraction
 	})
 	_, err = event.Client().Rest().UpdateInteractionResponse(event.ApplicationID(), event.Token(), updateBuilder.Build())
 	if err != nil {
-		log.Printf("[LeaderboardCommand] Failed to edit interaction: %s\n", err)
+		logger.Logger.Error("Failed to edit interaction", "err", err)
 	}
 }
