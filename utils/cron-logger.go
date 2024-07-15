@@ -10,9 +10,7 @@ type cronLogger struct {
 	logger *log.Logger
 }
 
-func (c *cronLogger) Info(msg string, keysAndValues ...interface{}) {
-	c.logger.Info(msg, keysAndValues...)
-}
+func (c *cronLogger) Info(msg string, keysAndValues ...interface{}) {}
 
 func (c *cronLogger) Error(err error, msg string, keysAndValues ...interface{}) {
 	keysAndValues = append(keysAndValues, "error", err)
