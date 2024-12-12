@@ -471,11 +471,11 @@ func (b *BigBen) bongComponents(emoji discord.ComponentEmoji, names []string) di
 		if i == 0 {
 			style = discord.ButtonStyleSuccess
 		}
-		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyle(style), j, fmt.Sprintf("none-%d", i), "").AsDisabled())
+		rowButtons = append(rowButtons, discord.NewButton(style, j, fmt.Sprintf("none-%d", i), "", 0).AsDisabled())
 	}
 
 	if limitNames {
-		rowButtons = append(rowButtons, discord.NewButton(discord.ButtonStyleSecondary, fmt.Sprintf("+%d", nameLen-3), "more", "").AsDisabled())
+		rowButtons = append(rowButtons, discord.NewSecondaryButton(fmt.Sprintf("+%d", nameLen-3), "more").AsDisabled())
 	}
 
 	// return the buttons in an action row
