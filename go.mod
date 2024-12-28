@@ -1,6 +1,6 @@
 module github.com/discord-plays/bigben
 
-go 1.23
+go 1.23.4
 
 require (
 	github.com/MrMelon54/channel-sorter v0.0.2
@@ -13,7 +13,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/joho/godotenv v1.5.1
-	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/snabb/isoweek v1.0.3
 )
@@ -36,6 +36,6 @@ require (
 	github.com/sasha-s/go-csync v0.0.0-20240107134140-fcbab37b09ad // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/exp v0.0.0-20241210194714-1829a127f884 // indirect
+	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 )
